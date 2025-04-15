@@ -1,5 +1,5 @@
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Play, Pause, RotateCcw, StepBack, StepForward, Volume2, VolumeX, ChevronRight } from 'lucide-react';
@@ -70,6 +70,8 @@ const VideoControls = ({
 }: VideoControlsProps) => {
   const [localTime, setLocalTime] = useState(currentTime);
   const [isDragging, setIsDragging] = useState(false);
+  const sliderDragStartedRef = useRef(false);
+  const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Setup form for time range selection
   const form = useForm<z.infer<typeof timeRangeSchema>>({
@@ -87,10 +89,19 @@ const VideoControls = ({
   
   // Update local time when currentTime changes (but not during dragging)
   useEffect(() => {
-    if (!isDragging) {
+    if (!isDragging && !sliderDragStartedRef.current) {
       setLocalTime(currentTime);
     }
   }, [currentTime, isDragging]);
+  
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (seekTimeoutRef.current) {
+        clearTimeout(seekTimeoutRef.current);
+      }
+    };
+  }, []);
   
   // Format time as MM:SS.ms
   const formatTime = (timeInSeconds: number) => {
@@ -109,23 +120,57 @@ const VideoControls = ({
     debounce((value: number) => {
       onSeek(value);
       setIsDragging(false);
+      sliderDragStartedRef.current = false;
     }, 20), // Reduced debounce time for more responsive seeking
     [onSeek]
   );
 
   // Handle slider change
   const handleSliderChange = (value: number[]) => {
-    setLocalTime(value[0]);
-    setIsDragging(true);
-    debouncedSeek(value[0]);
+    const newTime = value[0];
+    setLocalTime(newTime);
+    
+    // Only set isDragging to true if the change is user-initiated
+    if (sliderDragStartedRef.current) {
+      setIsDragging(true);
+      
+      // Clear any pending seek operations
+      if (seekTimeoutRef.current) {
+        clearTimeout(seekTimeoutRef.current);
+      }
+      
+      // Schedule new seek operation with a minimal delay
+      seekTimeoutRef.current = setTimeout(() => {
+        onSeek(newTime);
+        setIsDragging(false);
+        sliderDragStartedRef.current = false;
+      }, 20);
+    }
   };
   
   // Handle when user starts dragging slider
   const handleSliderDragStart = () => {
+    sliderDragStartedRef.current = true;
+    setIsDragging(true);
+    
     if (isPlaying) {
       onPause();
     }
-    setIsDragging(true);
+  };
+  
+  // Handle direct play button click with cleaner state management
+  const handlePlayClick = () => {
+    if (isDragging) {
+      // If we're currently dragging, first commit the current position
+      onSeek(localTime);
+      setIsDragging(false);
+      sliderDragStartedRef.current = false;
+    }
+    
+    // Then trigger play after a small delay to allow state to settle
+    setTimeout(() => {
+      onPlay();
+    }, 50);
   };
   
   // Handle time range form submission
@@ -142,7 +187,7 @@ const VideoControls = ({
         <Button
           variant="outline"
           size="icon"
-          onClick={isPlaying ? onPause : onPlay}
+          onClick={isPlaying ? onPause : handlePlayClick}
           className="h-10 w-10"
         >
           {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
@@ -185,6 +230,7 @@ const VideoControls = ({
             onValueCommit={value => {
               onSeek(value[0]);
               setIsDragging(false);
+              sliderDragStartedRef.current = false;
             }}
             onMouseDown={handleSliderDragStart}
             onTouchStart={handleSliderDragStart}
