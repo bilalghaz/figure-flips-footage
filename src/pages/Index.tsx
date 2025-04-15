@@ -1,74 +1,42 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import BarChart from '@/components/BarChart';
-import FootPressure from '@/components/FootPressure';
+import PressureDataUploader from '@/components/PressureDataUploader';
+import PressureHeatMap from '@/components/PressureHeatMap';
+import PressureDataTable from '@/components/PressureDataTable';
+import PressureChart from '@/components/PressureChart';
 import VideoControls from '@/components/VideoControls';
-
-// Mock data for Step Time Mean
-const stepTimeData = {
-  walking: [
-    { group: 'Flatfeet', value: 0.56, error: 0.03 },
-    { group: 'NormalArch', value: 0.56, error: 0.03 }
-  ],
-  jogging: [
-    { group: 'Flatfeet', value: 0.40, error: 0.02 },
-    { group: 'NormalArch', value: 0.39, error: 0.02 }
-  ]
-};
-
-// Mock data for Stride Time Mean
-const strideTimeData = {
-  walking: [
-    { group: 'Flatfeet', value: 1.12, error: 0.08 },
-    { group: 'NormalArch', value: 1.13, error: 0.06 }
-  ],
-  jogging: [
-    { group: 'Flatfeet', value: 0.80, error: 0.04 },
-    { group: 'NormalArch', value: 0.81, error: 0.09 }
-  ]
-};
-
-// Generate foot pressure data (simulated)
-const generateFootPressureData = (startTime: number, duration: number, cycles: number) => {
-  const data = [];
-  const cycleTime = duration / cycles;
-  
-  for (let i = 0; i < duration * 10; i++) {
-    const time = startTime + (i / 10);
-    const cyclePosition = (time % cycleTime) / cycleTime;
-    
-    // Create heel pressure curve (peaks earlier in the cycle)
-    const heelPressure = cyclePosition < 0.5 
-      ? 150 * Math.sin(cyclePosition * Math.PI) 
-      : 0;
-    
-    // Create toe pressure curve (peaks later in the cycle)
-    const toePressure = cyclePosition > 0.3 && cyclePosition < 0.8
-      ? 120 * Math.sin((cyclePosition - 0.3) * Math.PI / 0.5)
-      : 0;
-    
-    data.push({
-      time,
-      heelPressure,
-      toePressure
-    });
-  }
-  
-  return data;
-};
-
-// Generate foot pressure data for both feet
-const leftFootData = generateFootPressureData(80, 10, 10);
-const rightFootData = generateFootPressureData(80, 10, 10);
+import { ProcessedData, PressureDataPoint } from '@/utils/pressureDataProcessor';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [data, setData] = useState<ProcessedData | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState('heel');
+  const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
+  
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   
-  // Animation duration in seconds
-  const DURATION = 15;
+  // Current data point based on time
+  const getCurrentDataPoint = (): PressureDataPoint | null => {
+    if (!data || !data.pressureData.length) return null;
+    
+    // Find the closest data point for the current time
+    const index = data.pressureData.findIndex(point => point.time > currentTime);
+    if (index <= 0) return data.pressureData[0];
+    if (index >= data.pressureData.length) return data.pressureData[data.pressureData.length - 1];
+    
+    // Return the previous point (closest to current time)
+    return data.pressureData[index - 1];
+  };
   
   // Animation loop
   const animate = (timestamp: number) => {
@@ -80,10 +48,10 @@ const Index = () => {
     lastTimeRef.current = timestamp;
     
     setCurrentTime(prevTime => {
-      const newTime = prevTime + deltaTime;
-      if (newTime >= DURATION) {
+      const newTime = prevTime + (deltaTime * playbackSpeed);
+      if (data && newTime >= data.pressureData[data.pressureData.length - 1].time) {
         setIsPlaying(false);
-        return DURATION;
+        return data.pressureData[data.pressureData.length - 1].time;
       }
       return newTime;
     });
@@ -107,10 +75,17 @@ const Index = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying]);
+  }, [isPlaying, playbackSpeed]);
   
   // Play/pause handlers
   const handlePlay = () => {
+    if (!data) return;
+    
+    // If we're at the end, restart
+    if (currentTime >= data.pressureData[data.pressureData.length - 1].time) {
+      setCurrentTime(0);
+    }
+    
     setIsPlaying(true);
     lastTimeRef.current = null;
   };
@@ -127,98 +102,212 @@ const Index = () => {
   const handleSeek = (time: number) => {
     setCurrentTime(time);
   };
-
+  
+  const handleStepBackward = () => {
+    setCurrentTime(prevTime => Math.max(0, prevTime - 0.1));
+  };
+  
+  const handleStepForward = () => {
+    if (!data) return;
+    setCurrentTime(prevTime => 
+      Math.min(data.pressureData[data.pressureData.length - 1].time, prevTime + 0.1)
+    );
+  };
+  
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+  };
+  
+  const handleMuteToggle = () => {
+    setIsMuted(!isMuted);
+  };
+  
+  // Export data
+  const handleExportData = () => {
+    if (!data) return;
+    
+    const currentDataPoint = getCurrentDataPoint();
+    if (!currentDataPoint) return;
+    
+    const regions = ['heel', 'medialMidfoot', 'lateralMidfoot', 'forefoot', 'toes', 'hallux'];
+    
+    // Prepare data for export
+    const exportData = [
+      ['Region', 'Left Foot Peak (kPa)', 'Right Foot Peak (kPa)', 'Difference (kPa)', 
+       'Left Foot Mean (kPa)', 'Right Foot Mean (kPa)', 'Difference (kPa)'],
+      ...regions.map(region => {
+        const leftPeak = currentDataPoint.leftFoot[region].peak;
+        const rightPeak = currentDataPoint.rightFoot[region].peak;
+        const peakDiff = leftPeak - rightPeak;
+        
+        const leftMean = currentDataPoint.leftFoot[region].mean;
+        const rightMean = currentDataPoint.rightFoot[region].mean;
+        const meanDiff = leftMean - rightMean;
+        
+        return [
+          region,
+          leftPeak.toFixed(2),
+          rightPeak.toFixed(2),
+          peakDiff.toFixed(2),
+          leftMean.toFixed(2),
+          rightMean.toFixed(2),
+          meanDiff.toFixed(2)
+        ];
+      })
+    ];
+    
+    // Create a worksheet
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pressure Data');
+    
+    // Generate filename with current time
+    const filename = `pressure_data_${currentTime.toFixed(2)}s.xlsx`;
+    
+    // Trigger download
+    XLSX.writeFile(wb, filename);
+  };
+  
+  // Initialize to the start if data changes
+  useEffect(() => {
+    if (data) {
+      setCurrentTime(data.pressureData[0].time);
+    }
+  }, [data]);
+  
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-10 text-center">
-          <h1 className="text-3xl font-bold">Step Time and Stride Time Analysis</h1>
-          <p className="text-gray-600 mt-2">
-            Comparison of Gait Parameters Between Flatfeet and Normal Arch Conditions
+        <header className="mb-10">
+          <h1 className="text-3xl font-bold text-center">Plantar Pressure Analysis</h1>
+          <p className="text-gray-600 mt-2 text-center">
+            Upload and analyze pressure data from Pedar-X In-Shoe Pressure Measurement System
           </p>
         </header>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Step Time Mean */}
-          <BarChart
-            title="Step Time Mean (s)"
-            yAxisTitle="Time (s)"
-            data={stepTimeData}
-            maxValue={0.7}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={DURATION / 2}
-          />
-          
-          {/* Stride Time Mean */}
-          <BarChart
-            title="Stride Time Mean (s)"
-            yAxisTitle="Time (s)"
-            data={strideTimeData}
-            maxValue={1.3}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={DURATION / 2}
-          />
-        </div>
-        
-        <div className="grid grid-cols-1 gap-8 mb-8">
-          {/* Left Foot Pressure */}
-          <FootPressure
-            title="Left Foot (Heel=Blue, Toe=Red)"
-            data={leftFootData}
-            maxPressure={180}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={DURATION}
-            startTime={80}
-            endTime={90}
-          />
-          
-          {/* Right Foot Pressure */}
-          <FootPressure
-            title="Right Foot (Heel=Blue, Toe=Red)"
-            data={rightFootData}
-            maxPressure={180}
-            isPlaying={isPlaying}
-            currentTime={currentTime - DURATION / 2}
-            duration={DURATION / 2}
-            startTime={80}
-            endTime={90}
-          />
-        </div>
-        
-        <div className="mb-8">
-          <VideoControls
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={DURATION}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onReset={handleReset}
-            onSeek={handleSeek}
-          />
-        </div>
-        
-        <div className="bg-white p-6 rounded-md shadow-md">
-          <h2 className="text-xl font-bold mb-4">Figure 15: Step Time and Stride Time Mean During Walking and Jogging</h2>
-          <p className="text-gray-700 mb-4">
-            The visualization above demonstrates the differences in step and stride times between individuals with flatfeet and those with normal arch structures. The top charts show bar graphs comparing these metrics during walking and jogging activities, while the bottom charts visualize the actual pressure patterns in the left and right foot over time.
-          </p>
-          <p className="text-gray-700">
-            Key observations include:
-          </p>
-          <ul className="list-disc ml-6 mt-2 text-gray-700 space-y-1">
-            <li>Step and stride times decrease when transitioning from walking to jogging for both foot types</li>
-            <li>The heel pressure (blue) peaks before toe pressure (red) in the gait cycle</li>
-            <li>Minimal differences in temporal parameters between foot types suggest compensatory mechanisms</li>
-            <li>The pressure graphs illustrate the heel-to-toe transition during each step</li>
-          </ul>
-        </div>
-        
-        <footer className="mt-10 text-center text-gray-500 text-sm">
-          Data visualization of walking and running biomechanics parameters
-        </footer>
+        {!data ? (
+          <div className="max-w-xl mx-auto">
+            <PressureDataUploader 
+              onDataProcessed={setData} 
+              isProcessing={isProcessing}
+              setIsProcessing={setIsProcessing}
+            />
+          </div>
+        ) : (
+          <div className="space-y-8">
+            <div className="bg-white p-4 rounded-md shadow-md">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Pressure Data Visualization</h2>
+                <div className="flex items-center space-x-4">
+                  <Button 
+                    onClick={handleExportData}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Export Current Frame
+                  </Button>
+                  <Button 
+                    onClick={() => setData(null)}
+                    variant="outline"
+                  >
+                    Upload New Data
+                  </Button>
+                </div>
+              </div>
+              
+              <VideoControls
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={data.pressureData[data.pressureData.length - 1].time}
+                playbackSpeed={playbackSpeed}
+                isMuted={isMuted}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onReset={handleReset}
+                onSeek={handleSeek}
+                onSpeedChange={handleSpeedChange}
+                onMuteToggle={handleMuteToggle}
+                onStepBackward={handleStepBackward}
+                onStepForward={handleStepForward}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white p-4 rounded-md shadow-md flex justify-center">
+                <PressureHeatMap 
+                  dataPoint={getCurrentDataPoint()} 
+                  side="left"
+                  maxPressure={pressureMode === 'peak' ? data.maxPeakPressure : data.maxMeanPressure}
+                  mode={pressureMode}
+                />
+              </div>
+              
+              <div className="bg-white p-4 rounded-md shadow-md flex justify-center">
+                <PressureHeatMap 
+                  dataPoint={getCurrentDataPoint()} 
+                  side="right"
+                  maxPressure={pressureMode === 'peak' ? data.maxPeakPressure : data.maxMeanPressure}
+                  mode={pressureMode}
+                />
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-md shadow-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Pressure Analysis</h2>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm">Region:</span>
+                    <Select
+                      value={currentRegion}
+                      onValueChange={setCurrentRegion}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select Region" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="heel">Heel</SelectItem>
+                        <SelectItem value="medialMidfoot">Medial Midfoot</SelectItem>
+                        <SelectItem value="lateralMidfoot">Lateral Midfoot</SelectItem>
+                        <SelectItem value="forefoot">Forefoot</SelectItem>
+                        <SelectItem value="toes">Toes</SelectItem>
+                        <SelectItem value="hallux">Hallux</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm">Mode:</span>
+                    <Tabs 
+                      value={pressureMode}
+                      onValueChange={(value) => setPressureMode(value as 'peak' | 'mean')}
+                      className="w-[200px]"
+                    >
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="peak">Peak Pressure</TabsTrigger>
+                        <TabsTrigger value="mean">Mean Pressure</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <PressureChart 
+                  data={data} 
+                  currentTime={currentTime}
+                  region={currentRegion}
+                  mode={pressureMode}
+                />
+                <PressureDataTable 
+                  dataPoint={getCurrentDataPoint()}
+                  mode={pressureMode}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
