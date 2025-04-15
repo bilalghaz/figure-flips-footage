@@ -130,11 +130,39 @@ export const processPressureData = async (file: File): Promise<ProcessedData> =>
   });
   
   console.log(`Processed ${pressureData.length} data points`);
+  console.log(`Max peak pressure: ${maxPeakPressure.toFixed(2)} kPa`);
+  console.log(`Max mean pressure: ${maxMeanPressure.toFixed(2)} kPa`);
+  
+  // Filter out any extremely large outliers (more than 3x the average of the top 10%)
+  const sortedPeakPressures = [...pressureData].sort((a, b) => {
+    const aMax = Math.max(
+      ...Object.values(a.leftFoot).map(r => r.peak),
+      ...Object.values(a.rightFoot).map(r => r.peak)
+    );
+    const bMax = Math.max(
+      ...Object.values(b.leftFoot).map(r => r.peak),
+      ...Object.values(b.rightFoot).map(r => r.peak)
+    );
+    return bMax - aMax;
+  });
+  
+  // Calculate average of top 10% values
+  const top10Percent = sortedPeakPressures.slice(0, Math.max(1, Math.floor(pressureData.length * 0.1)));
+  const avgTop10 = top10Percent.reduce((sum, point) => {
+    const maxVal = Math.max(
+      ...Object.values(point.leftFoot).map(r => r.peak),
+      ...Object.values(point.rightFoot).map(r => r.peak)
+    );
+    return sum + maxVal;
+  }, 0) / top10Percent.length;
+  
+  // Cap max pressure at 3x the average of top 10% to prevent outliers from skewing color scale
+  const adjustedMaxPeakPressure = Math.min(maxPeakPressure, avgTop10 * 3);
   
   return {
     timePoints,
     pressureData,
-    maxPeakPressure,
-    maxMeanPressure
+    maxPeakPressure: adjustedMaxPeakPressure,
+    maxMeanPressure: maxMeanPressure
   };
 };
