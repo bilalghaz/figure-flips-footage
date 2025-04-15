@@ -23,6 +23,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
   const [footView, setFootView] = useState<'combined' | 'left' | 'right'>('combined');
   const [isLoading, setIsLoading] = useState(true);
   const [chartOpacity, setChartOpacity] = useState(0);
+  const [dataReady, setDataReady] = useState(false);
   
   // Initialize chart visibility effect
   useEffect(() => {
@@ -30,19 +31,22 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     setIsLoading(true);
     setChartOpacity(0);
     
+    // This helps with performance by deferring heavy calculations
     const timer = setTimeout(() => {
+      setDataReady(true);
       setIsLoading(false);
+      
       const fadeTimer = setTimeout(() => {
         setChartOpacity(1);
       }, 100);
       
       return () => clearTimeout(fadeTimer);
-    }, 800);
+    }, 300);
     
     return () => clearTimeout(timer);
   }, [stancePhases, footView]);
   
-  // Filter phases by foot
+  // Filter phases by foot - memoized for performance
   const leftFootPhases = useMemo(() => 
     stancePhases.filter(phase => phase.foot === 'left'),
   [stancePhases]);
@@ -85,11 +89,11 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
   
   const displayPhases = useMemo(() => getDisplayPhases(), [getDisplayPhases]);
 
-  // Prepare bar chart data
+  // Prepare bar chart data - now with both feet correctly processed
   const barChartData = useMemo(() => {
     const leftData = leftFootPhases.map(phase => ({
       id: `left-${phase.startTime.toFixed(1)}`,
-      condition: 'Walking - Left',
+      condition: 'Left Foot',
       apPosition: phase.meanCopX,
       error: phase.apRange / 4, // Standard deviation approximation
       foot: 'Left',
@@ -98,7 +102,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
 
     const rightData = rightFootPhases.map(phase => ({
       id: `right-${phase.startTime.toFixed(1)}`,
-      condition: 'Walking - Right',
+      condition: 'Right Foot',
       apPosition: phase.meanCopX,
       error: phase.apRange / 4,
       foot: 'Right',
@@ -110,6 +114,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
 
   // Group bar chart data by condition
   const groupedBarData = useMemo(() => {
+    // Group by foot condition
     const grouped = barChartData.reduce((acc, item) => {
       const existingGroup = acc.find(g => g.condition === item.condition);
       if (existingGroup) {
@@ -123,6 +128,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
       return acc;
     }, [] as any[]);
 
+    // Process grouped data
     return grouped.map(group => {
       const items = group.items;
       return {
@@ -134,7 +140,8 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
       };
     });
   }, [barChartData]);
-
+  
+  // Loading state
   if (isLoading) {
     return (
       <Card>
@@ -154,6 +161,27 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
               <Skeleton className="h-20 w-full" />
             </div>
             <Skeleton className="h-[350px] w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // No data state
+  if (!dataReady || !stancePhases || stancePhases.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+            <CardTitle className="text-lg">Center of Pressure Analysis</CardTitle>
+            <div className="flex items-center">
+              <span>No COP data available</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center h-[300px] bg-gray-50 rounded-md">
+            <p className="text-gray-500">No stance phase detected at current time point</p>
           </div>
         </CardContent>
       </Card>
@@ -292,7 +320,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                             stroke={phase === currentStancePhase ? (phase.foot === 'left' ? "#6a5acd" : "#2e8b57") : "none"}
                             strokeWidth={1.5}
                             line={phase === currentStancePhase}
-                            lineType="joint"
+                            lineType="fitting"
                           />
                         ))}
                         
@@ -360,7 +388,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                           <Bar 
                             dataKey="apPosition" 
                             name="AP Position" 
-                            fill="#1f77b4"
+                            fill={(data) => data.color || "#1f77b4"}
                           >
                             <ErrorBar dataKey="error" width={4} strokeWidth={1} />
                           </Bar>

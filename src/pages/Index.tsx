@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import PressureDataUploader from '@/components/PressureDataUploader';
 import PressureHeatMap from '@/components/PressureHeatMap';
 import PressureDataTable from '@/components/PressureDataTable';
@@ -33,6 +32,12 @@ const Index = () => {
   const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
   const [activeTab, setActiveTab] = useState<string>('visualization');
   
+  // For performance optimization, keep track of render counts
+  const renderCount = useRef(0);
+  
+  // For lazy loading of heavy components
+  const [showTab, setShowTab] = useState<boolean>(false);
+  
   const [datasets, setDatasets] = useState<ProcessedData[]>([]);
   const [activeDatasetIndex, setActiveDatasetIndex] = useState<number>(0);
   const [copFile, setCopFile] = useState<File | null>(null);
@@ -47,20 +52,54 @@ const Index = () => {
   const lastTimeRef = useRef<number | null>(null);
   const activeTabRef = useRef<string>(activeTab);
   
+  // Cache the current data point for better performance
+  const [cachedDataPoint, setCachedDataPoint] = useState<PressureDataPoint | null>(null);
+  
   // Update the ref when activeTab changes to avoid closure issues
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
   
+  // Show tab after initial render to improve initial load time
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowTab(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Memoized function to get current data point
   const getCurrentDataPoint = useCallback((): PressureDataPoint | null => {
     if (!data || !data.pressureData.length) return null;
     
-    const index = data.pressureData.findIndex(point => point.time > currentTime);
-    if (index <= 0) return data.pressureData[0];
-    if (index >= data.pressureData.length) return data.pressureData[data.pressureData.length - 1];
+    // Binary search for better performance with large datasets
+    let start = 0;
+    let end = data.pressureData.length - 1;
     
-    return data.pressureData[index - 1];
+    while (start <= end) {
+      const mid = Math.floor((start + end) / 2);
+      if (data.pressureData[mid].time === currentTime) {
+        return data.pressureData[mid];
+      }
+      
+      if (data.pressureData[mid].time < currentTime) {
+        start = mid + 1;
+      } else {
+        end = mid - 1;
+      }
+    }
+    
+    // If we didn't find an exact match, return the closest time before the current time
+    return end >= 0 ? data.pressureData[end] : data.pressureData[0];
   }, [data, currentTime]);
+  
+  // Update cached data point when current time changes
+  useEffect(() => {
+    if (data) {
+      setCachedDataPoint(getCurrentDataPoint());
+    }
+  }, [currentTime, data, getCurrentDataPoint]);
   
   const animate = useCallback((timestamp: number) => {
     if (!lastTimeRef.current) {
@@ -180,7 +219,7 @@ const Index = () => {
   const handleExportData = () => {
     if (!data) return;
     
-    const currentDataPoint = getCurrentDataPoint();
+    const currentDataPoint = cachedDataPoint || getCurrentDataPoint();
     if (!currentDataPoint) return;
     
     const regions = ['heel', 'medialMidfoot', 'lateralMidfoot', 'forefoot', 'toes', 'hallux'];
@@ -406,7 +445,7 @@ const Index = () => {
   };
   
   // For performance optimization, conditionally render active tab content only
-  const renderActiveTabContent = () => {
+  const renderActiveTabContent = useCallback(() => {
     if (!data) return null;
     
     switch (activeTab) {
@@ -415,14 +454,14 @@ const Index = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <PressureHeatMap 
-                dataPoint={getCurrentDataPoint()} 
+                dataPoint={cachedDataPoint || getCurrentDataPoint()} 
                 side="left"
                 maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
                 mode={pressureMode}
               />
               
               <PressureHeatMap 
-                dataPoint={getCurrentDataPoint()} 
+                dataPoint={cachedDataPoint || getCurrentDataPoint()} 
                 side="right"
                 maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
                 mode={pressureMode}
@@ -477,7 +516,7 @@ const Index = () => {
                   mode={pressureMode}
                 />
                 <PressureDataTable 
-                  dataPoint={getCurrentDataPoint()}
+                  dataPoint={cachedDataPoint || getCurrentDataPoint()}
                   mode={pressureMode}
                 />
               </div>
@@ -550,13 +589,22 @@ const Index = () => {
       default:
         return null;
     }
-  };
+  }, [activeTab, cachedDataPoint, getCurrentDataPoint, currentRegion, currentTime, data, datasets, pressureMode]);
+  
+  // Memoize the active tab content for better performance
+  const memoizedTabContent = useMemo(() => renderActiveTabContent(), [renderActiveTabContent]);
   
   useEffect(() => {
     if (data) {
       setCurrentTime(timeRange.start || data.pressureData[0].time);
     }
   }, [data, timeRange.start]);
+  
+  useEffect(() => {
+    // Log render count for performance debugging
+    renderCount.current += 1;
+    console.log(`Index component render count: ${renderCount.current}`);
+  });
   
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 overflow-x-hidden">
@@ -662,7 +710,7 @@ const Index = () => {
                     {data?.pressureData[data.pressureData.length - 1].time.toFixed(2) || 0}s
                   </Badge>
                   
-                  {timeRange.start !== 0 || timeRange.end !== null && (
+                  {(timeRange.start !== 0 || timeRange.end !== null) && (
                     <Badge variant="outline" className="bg-green-50 text-green-800">
                       Range: {timeRange.start.toFixed(1)}s - {timeRange.end?.toFixed(1) || 'End'}s
                     </Badge>
@@ -742,35 +790,37 @@ const Index = () => {
               />
             </div>
             
-            <Tabs 
-              value={activeTab} 
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
-              <div className="bg-white p-4 rounded-md shadow-md mb-6">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-4">
-                  <TabsTrigger value="visualization">Visualization</TabsTrigger>
-                  <TabsTrigger value="analysis">Analysis</TabsTrigger>
-                  <TabsTrigger value="gait-events">Gait Events</TabsTrigger>
-                  <TabsTrigger value="cop-analysis">COP Analysis</TabsTrigger>
-                  <TabsTrigger value="comparison">Comparison</TabsTrigger>
-                </TabsList>
+            {showTab && (
+              <Tabs 
+                value={activeTab} 
+                onValueChange={setActiveTab}
+                className="w-full"
+              >
+                <div className="bg-white p-4 rounded-md shadow-md mb-6">
+                  <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-4">
+                    <TabsTrigger value="visualization">Visualization</TabsTrigger>
+                    <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                    <TabsTrigger value="gait-events">Gait Events</TabsTrigger>
+                    <TabsTrigger value="cop-analysis">COP Analysis</TabsTrigger>
+                    <TabsTrigger value="comparison">Comparison</TabsTrigger>
+                  </TabsList>
+                  
+                  <UserControlPanel 
+                    data={data}
+                    currentTime={currentTime}
+                    onFilter={handleFilterApplied}
+                    onExport={handleExportData}
+                    isProcessing={isProcessing}
+                    onReset={handleResetData}
+                  />
+                </div>
                 
-                <UserControlPanel 
-                  data={data}
-                  currentTime={currentTime}
-                  onFilter={handleFilterApplied}
-                  onExport={handleExportData}
-                  isProcessing={isProcessing}
-                  onReset={handleResetData}
-                />
-              </div>
-              
-              {/* Only render the active tab content for better performance */}
-              <TabsContent value={activeTab} className="focus:outline-none">
-                {renderActiveTabContent()}
-              </TabsContent>
-            </Tabs>
+                {/* Only render the active tab content for better performance */}
+                <TabsContent value={activeTab} className="focus:outline-none mt-0">
+                  {memoizedTabContent}
+                </TabsContent>
+              </Tabs>
+            )}
           </div>
         )}
       </div>

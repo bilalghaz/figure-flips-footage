@@ -27,17 +27,24 @@ const PressureChart: React.FC<PressureChartProps> = ({
   const [chartOpacity, setChartOpacity] = useState(0);
   const lastRegionRef = useRef(region);
   const lastModeRef = useRef(mode);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    // Only trigger loading state when region or mode changes
-    if (lastRegionRef.current !== region || lastModeRef.current !== mode) {
+    // Only trigger loading state when region or mode changes or data changes
+    if (lastRegionRef.current !== region || lastModeRef.current !== mode || !data) {
       setIsLoading(true);
       setChartOpacity(0);
       
       lastRegionRef.current = region;
       lastModeRef.current = mode;
       
-      const timer = setTimeout(() => {
+      // Clear any existing timeouts
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      // Set a timeout to switch to loaded state
+      timeoutRef.current = setTimeout(() => {
         setIsLoading(false);
         // After loading state ends, gradually fade in the chart
         const fadeTimer = setTimeout(() => {
@@ -47,9 +54,22 @@ const PressureChart: React.FC<PressureChartProps> = ({
         return () => clearTimeout(fadeTimer);
       }, 300);
       
-      return () => clearTimeout(timer);
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
     }
   }, [data, region, mode]);
+  
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
   
   if (isLoading || !data) {
     return (
@@ -85,4 +105,4 @@ const PressureChart: React.FC<PressureChartProps> = ({
   );
 };
 
-export default PressureChart;
+export default memo(PressureChart);
