@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ProcessedData, PressureDataPoint } from '@/utils/pressureDataProcessor';
 import { Button } from "@/components/ui/button";
@@ -210,19 +209,19 @@ const UserControlPanel: React.FC<UserControlPanelProps> = ({
     
     data.pressureData.forEach(point => {
       pressureDataRows.push([
-        point.time,
-        point.leftFoot.heel.peak,
-        point.leftFoot.medialMidfoot.peak,
-        point.leftFoot.lateralMidfoot.peak,
-        point.leftFoot.forefoot.peak,
-        point.leftFoot.toes.peak,
-        point.leftFoot.hallux.peak,
-        point.rightFoot.heel.peak,
-        point.rightFoot.medialMidfoot.peak,
-        point.rightFoot.lateralMidfoot.peak,
-        point.rightFoot.forefoot.peak,
-        point.rightFoot.toes.peak,
-        point.rightFoot.hallux.peak
+        point.time.toString(),
+        point.leftFoot.heel.peak.toString(),
+        point.leftFoot.medialMidfoot.peak.toString(),
+        point.leftFoot.lateralMidfoot.peak.toString(),
+        point.leftFoot.forefoot.peak.toString(),
+        point.leftFoot.toes.peak.toString(),
+        point.leftFoot.hallux.peak.toString(),
+        point.rightFoot.heel.peak.toString(),
+        point.rightFoot.medialMidfoot.peak.toString(),
+        point.rightFoot.lateralMidfoot.peak.toString(),
+        point.rightFoot.forefoot.peak.toString(),
+        point.rightFoot.toes.peak.toString(),
+        point.rightFoot.hallux.peak.toString()
       ]);
     });
     
@@ -235,11 +234,11 @@ const UserControlPanel: React.FC<UserControlPanelProps> = ({
     ];
     
     heelStrikes.forEach(event => {
-      gaitEventsRows.push(['Heel Strike', event.time, event.foot]);
+      gaitEventsRows.push(['Heel Strike', event.time.toString(), event.foot]);
     });
     
     toeOffs.forEach(event => {
-      gaitEventsRows.push(['Toe Off', event.time, event.foot]);
+      gaitEventsRows.push(['Toe Off', event.time.toString(), event.foot]);
     });
     
     const gaitEventsWS = XLSX.utils.aoa_to_sheet(gaitEventsRows);
@@ -249,12 +248,12 @@ const UserControlPanel: React.FC<UserControlPanelProps> = ({
     const summaryRows = [
       ['Metric', 'Left Foot', 'Right Foot', 'Difference (%)', 'Notes'],
       ['Number of Heel Strikes', 
-       heelStrikes.filter(e => e.foot === 'left').length, 
-       heelStrikes.filter(e => e.foot === 'right').length, 
+       heelStrikes.filter(e => e.foot === 'left').length.toString(), 
+       heelStrikes.filter(e => e.foot === 'right').length.toString(), 
        '', ''],
       ['Number of Toe Offs', 
-       toeOffs.filter(e => e.foot === 'left').length, 
-       toeOffs.filter(e => e.foot === 'right').length, 
+       toeOffs.filter(e => e.foot === 'left').length.toString(), 
+       toeOffs.filter(e => e.foot === 'right').length.toString(), 
        '', ''],
       ['Max Peak Pressure (kPa)', '', '', '', data.maxPeakPressure.toFixed(2)],
       ['Max Mean Pressure (kPa)', '', '', '', data.maxMeanPressure.toFixed(2)],

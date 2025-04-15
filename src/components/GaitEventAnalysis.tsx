@@ -443,7 +443,7 @@ const GaitEventAnalysis: React.FC<GaitEventAnalysisProps> = ({
               strokeWidth={1.5}
             />
             
-            {/* Heel strike markers */}
+            {/* Heel strike markers - Fix: changed function to string */}
             <Scatter
               name="Heel Strikes"
               data={heelStrikes.map(hs => ({
@@ -451,12 +451,12 @@ const GaitEventAnalysis: React.FC<GaitEventAnalysisProps> = ({
                 pressure: hs.foot === 'left' ? 25 : 25,
                 foot: hs.foot
               }))}
-              fill={point => point.foot === 'left' ? '#8884d8' : '#82ca9d'}
+              fill="#8884d8"
               shape="circle"
               legendType="none"
             />
             
-            {/* Toe off markers */}
+            {/* Toe off markers - Fix: changed function to string */}
             <Scatter
               name="Toe Offs"
               data={toeOffs.map(to => ({
@@ -464,7 +464,7 @@ const GaitEventAnalysis: React.FC<GaitEventAnalysisProps> = ({
                 pressure: to.foot === 'left' ? 20 : 20,
                 foot: to.foot
               }))}
-              fill={point => point.foot === 'left' ? '#8884d8' : '#82ca9d'}
+              fill="#82ca9d"
               shape="cross"
               legendType="none"
             />
