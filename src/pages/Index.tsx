@@ -3,15 +3,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import PressureDataUploader from '@/components/PressureDataUploader';
 import PressureHeatMap from '@/components/PressureHeatMap';
 import PressureDataTable from '@/components/PressureDataTable';
-import EnhancedPressureChart from '@/components/EnhancedPressureChart';
+import PressureChart from '@/components/PressureChart';
 import AveragePressureHeatmap from '@/components/AveragePressureHeatmap';
 import GaitEventAnalysis from '@/components/GaitEventAnalysis';
 import VideoControls from '@/components/VideoControls';
 import UserControlPanel from '@/components/UserControlPanel';
-import { ProcessedData, PressureDataPoint } from '@/utils/pressureDataProcessor';
+import CopTrajectoryVisualization from '@/components/CopTrajectoryVisualization';
+import DatasetComparison from '@/components/DatasetComparison';
+import { ProcessedData, PressureDataPoint, processPressureData, processCopForceData, mergeData, CopForceDataPoint } from '@/utils/pressureDataProcessor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileSpreadsheet, ArrowLeft } from 'lucide-react';
+import { FileSpreadsheet, ArrowLeft, Trash2, Database, FileBarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,6 +33,11 @@ const Index = () => {
   const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
   const [activeTab, setActiveTab] = useState<string>('visualization');
   
+  // Multiple datasets support
+  const [datasets, setDatasets] = useState<ProcessedData[]>([]);
+  const [activeDatasetIndex, setActiveDatasetIndex] = useState<number>(0);
+  const [copFile, setCopFile] = useState<File | null>(null);
+  
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   
@@ -47,7 +54,7 @@ const Index = () => {
     return data.pressureData[index - 1];
   };
   
-  // Animation loop
+  // Animation loop - with improved stability to prevent screen shaking
   const animate = (timestamp: number) => {
     if (!lastTimeRef.current) {
       lastTimeRef.current = timestamp;
@@ -56,14 +63,17 @@ const Index = () => {
     const deltaTime = (timestamp - lastTimeRef.current) / 1000;
     lastTimeRef.current = timestamp;
     
-    setCurrentTime(prevTime => {
-      const newTime = prevTime + (deltaTime * playbackSpeed);
-      if (data && newTime >= data.pressureData[data.pressureData.length - 1].time) {
-        setIsPlaying(false);
-        return data.pressureData[data.pressureData.length - 1].time;
-      }
-      return newTime;
-    });
+    // Smoother playback with frame limiting
+    if (deltaTime > 0.05) {
+      setCurrentTime(prevTime => {
+        const newTime = prevTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
+        if (data && newTime >= data.pressureData[data.pressureData.length - 1].time) {
+          setIsPlaying(false);
+          return data.pressureData[data.pressureData.length - 1].time;
+        }
+        return newTime;
+      });
+    }
     
     if (isPlaying) {
       animationRef.current = requestAnimationFrame(animate);
@@ -109,6 +119,10 @@ const Index = () => {
   };
   
   const handleSeek = (time: number) => {
+    // Stop playback when manually seeking to prevent jerky motion
+    if (isPlaying) {
+      setIsPlaying(false);
+    }
     setCurrentTime(time);
   };
   
@@ -185,20 +199,101 @@ const Index = () => {
   };
   
   // Handle data processing
-  const handleDataProcessed = (processedData: ProcessedData) => {
-    setData(processedData);
-    setOriginalData(JSON.parse(JSON.stringify(processedData))); // Keep a deep copy of original data
-    setCurrentTime(processedData.pressureData[0].time);
-    toast({
-      title: "Data loaded successfully",
-      description: `Processed ${processedData.pressureData.length} data points`,
-      duration: 3000,
-    });
+  const handleDataProcessed = async (processedData: ProcessedData) => {
+    // If there's a matching COP file, process it too
+    if (copFile) {
+      try {
+        setIsProcessing(true);
+        
+        // Process the COP file
+        const copForceData = await processCopForceData(copFile);
+        
+        // Merge the data
+        const mergedData = mergeData(processedData, copForceData);
+        
+        // Add to datasets
+        setDatasets(prev => [...prev, mergedData]);
+        
+        // Set as active dataset
+        setActiveDatasetIndex(datasets.length);
+        
+        // Set as current data
+        setData(mergedData);
+        setOriginalData(JSON.parse(JSON.stringify(mergedData)));
+        setCurrentTime(mergedData.pressureData[0].time);
+        
+        toast({
+          title: "Data loaded successfully",
+          description: `Processed ${mergedData.pressureData.length} data points with COP data`,
+          duration: 3000,
+        });
+        
+        // Clear COP file after processing
+        setCopFile(null);
+      } catch (error) {
+        console.error('Error processing COP data:', error);
+        toast({
+          title: "Error processing COP data",
+          description: String(error),
+          variant: "destructive",
+          duration: 5000,
+        });
+        
+        // Still add the pressure data without COP
+        setDatasets(prev => [...prev, processedData]);
+        setActiveDatasetIndex(datasets.length);
+        setData(processedData);
+        setOriginalData(JSON.parse(JSON.stringify(processedData)));
+        setCurrentTime(processedData.pressureData[0].time);
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      // Just add the pressure data
+      setDatasets(prev => [...prev, processedData]);
+      setActiveDatasetIndex(datasets.length);
+      setData(processedData);
+      setOriginalData(JSON.parse(JSON.stringify(processedData)));
+      setCurrentTime(processedData.pressureData[0].time);
+      
+      toast({
+        title: "Data loaded successfully",
+        description: `Processed ${processedData.pressureData.length} data points`,
+        duration: 3000,
+      });
+    }
+  };
+  
+  // Handle COP file selection
+  const handleCopFileSelected = (file: File) => {
+    if (file.name.toLowerCase().includes('fgt') || file.name.toLowerCase().includes('cop')) {
+      setCopFile(file);
+      toast({
+        title: "COP/Force file selected",
+        description: `File "${file.name}" will be processed with the next pressure data file`,
+        duration: 3000,
+      });
+    } else {
+      toast({
+        title: "Invalid COP/Force file",
+        description: "The file doesn't appear to be a FGT/COP data file. The filename should contain 'FGT' or 'COP'.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
   };
   
   // Handle filter applied
   const handleFilterApplied = (filteredData: ProcessedData) => {
     setData(filteredData);
+    
+    // Also update the datasets array
+    setDatasets(prev => {
+      const newDatasets = [...prev];
+      newDatasets[activeDatasetIndex] = filteredData;
+      return newDatasets;
+    });
+    
     toast({
       title: "Filter applied",
       description: "Data has been filtered",
@@ -209,12 +304,60 @@ const Index = () => {
   // Handle reset to original data
   const handleResetData = () => {
     if (originalData) {
-      setData(JSON.parse(JSON.stringify(originalData)));
+      const resetData = JSON.parse(JSON.stringify(originalData));
+      setData(resetData);
+      
+      // Also update the datasets array
+      setDatasets(prev => {
+        const newDatasets = [...prev];
+        newDatasets[activeDatasetIndex] = resetData;
+        return newDatasets;
+      });
+      
       toast({
         title: "Data reset",
         description: "Returned to original unfiltered data",
         duration: 3000,
       });
+    }
+  };
+  
+  // Switch between datasets
+  const handleDatasetChange = (index: number) => {
+    if (index >= 0 && index < datasets.length) {
+      setActiveDatasetIndex(index);
+      setData(datasets[index]);
+      setOriginalData(JSON.parse(JSON.stringify(datasets[index])));
+      setCurrentTime(datasets[index].pressureData[0].time);
+      setIsPlaying(false); // Stop playback when switching
+    }
+  };
+  
+  // Remove a dataset
+  const handleRemoveDataset = (index: number) => {
+    if (datasets.length <= 1) {
+      // If it's the last dataset, clear everything
+      setDatasets([]);
+      setData(null);
+      setOriginalData(null);
+      setActiveDatasetIndex(0);
+      return;
+    }
+    
+    const newDatasets = datasets.filter((_, i) => i !== index);
+    setDatasets(newDatasets);
+    
+    // Adjust active index if needed
+    if (index === activeDatasetIndex) {
+      // Set to the previous dataset, or the first one if that was the first
+      const newIndex = Math.max(0, index - 1);
+      setActiveDatasetIndex(newIndex);
+      setData(newDatasets[newIndex]);
+      setOriginalData(JSON.parse(JSON.stringify(newDatasets[newIndex])));
+      setCurrentTime(newDatasets[newIndex].pressureData[0].time);
+    } else if (index < activeDatasetIndex) {
+      // Adjust the active index down by one
+      setActiveDatasetIndex(activeDatasetIndex - 1);
     }
   };
   
@@ -226,7 +369,7 @@ const Index = () => {
   }, [data]);
   
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6 overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         <header className="mb-6 md:mb-10">
           <h1 className="text-2xl md:text-3xl font-bold text-center">Plantar Pressure Analysis</h1>
@@ -235,10 +378,60 @@ const Index = () => {
           </p>
         </header>
         
-        {!data ? (
+        {datasets.length === 0 ? (
           <div className="max-w-xl mx-auto">
             <Card>
               <CardContent className="pt-6">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold mb-2">COP/Force File (Optional)</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Upload an FGT.xlsx file containing COP and force data for enhanced analysis.
+                  </p>
+                  <div className="border-2 border-dashed border-gray-300 rounded-md p-4">
+                    {copFile ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <FileBarChart2 className="h-6 w-6 text-blue-500 mr-2" />
+                          <div>
+                            <p className="font-medium">{copFile.name}</p>
+                            <p className="text-xs text-gray-500">COP/Force file selected</p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setCopFile(null)}
+                          className="text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="ml-1">Remove</span>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <FileBarChart2 className="h-10 w-10 text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-500 mb-1">Drag and drop an FGT.xlsx file or click to browse</p>
+                        <input
+                          type="file"
+                          accept=".xlsx"
+                          className="hidden"
+                          id="cop-file-input"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleCopFileSelected(e.target.files[0]);
+                            }
+                          }}
+                        />
+                        <label htmlFor="cop-file-input">
+                          <Button variant="outline" size="sm" className="mt-2" asChild>
+                            <span>Select COP File</span>
+                          </Button>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 <PressureDataUploader 
                   onDataProcessed={handleDataProcessed} 
                   isProcessing={isProcessing}
@@ -256,8 +449,10 @@ const Index = () => {
                     variant="outline" 
                     size="sm"
                     onClick={() => {
+                      setDatasets([]);
                       setData(null);
                       setOriginalData(null);
+                      setCopFile(null);
                     }}
                     className="flex items-center gap-1"
                   >
@@ -266,12 +461,18 @@ const Index = () => {
                   </Button>
                   
                   <Badge variant="outline" className="bg-blue-50 text-blue-800">
-                    {data.pressureData.length} Data Points
+                    {data?.pressureData.length || 0} Data Points
                   </Badge>
                   
                   <Badge variant="outline" className="bg-blue-50 text-blue-800">
-                    {data.pressureData[data.pressureData.length - 1].time.toFixed(2)}s
+                    {data?.pressureData[data.pressureData.length - 1].time.toFixed(2) || 0}s
                   </Badge>
+                  
+                  {data?.copForceData && (
+                    <Badge variant="outline" className="bg-green-50 text-green-800">
+                      COP Data Available
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -287,10 +488,47 @@ const Index = () => {
                 </div>
               </div>
               
+              {/* Dataset selection */}
+              {datasets.length > 1 && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {datasets.map((dataset, index) => (
+                    <Badge 
+                      key={index}
+                      variant={index === activeDatasetIndex ? "default" : "outline"}
+                      className="cursor-pointer flex items-center gap-1"
+                      onClick={() => handleDatasetChange(index)}
+                    >
+                      <Database className="h-3 w-3 mr-1" />
+                      {dataset.participantId || dataset.fileName || `Dataset ${index + 1}`}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 ml-1 text-gray-400 hover:text-red-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveDataset(index);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setActiveTab('comparison')}
+                  >
+                    Compare Datasets
+                  </Button>
+                </div>
+              )}
+              
               <VideoControls
                 isPlaying={isPlaying}
                 currentTime={currentTime}
-                duration={data.pressureData[data.pressureData.length - 1].time}
+                duration={data?.pressureData[data.pressureData.length - 1].time || 0}
                 playbackSpeed={playbackSpeed}
                 isMuted={isMuted}
                 onPlay={handlePlay}
@@ -310,11 +548,12 @@ const Index = () => {
               className="w-full"
             >
               <div className="bg-white p-4 rounded-md shadow-md mb-6">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 mb-4">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-4">
                   <TabsTrigger value="visualization">Visualization</TabsTrigger>
                   <TabsTrigger value="analysis">Analysis</TabsTrigger>
                   <TabsTrigger value="gait-events">Gait Events</TabsTrigger>
-                  <TabsTrigger value="control-panel">Control Panel</TabsTrigger>
+                  <TabsTrigger value="cop-analysis">COP Analysis</TabsTrigger>
+                  <TabsTrigger value="comparison">Comparison</TabsTrigger>
                 </TabsList>
                 
                 <UserControlPanel 
@@ -332,14 +571,14 @@ const Index = () => {
                   <PressureHeatMap 
                     dataPoint={getCurrentDataPoint()} 
                     side="left"
-                    maxPressure={pressureMode === 'peak' ? data.maxPeakPressure : data.maxMeanPressure}
+                    maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
                     mode={pressureMode}
                   />
                   
                   <PressureHeatMap 
                     dataPoint={getCurrentDataPoint()} 
                     side="right"
-                    maxPressure={pressureMode === 'peak' ? data.maxPeakPressure : data.maxMeanPressure}
+                    maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
                     mode={pressureMode}
                   />
                 </div>
@@ -385,7 +624,7 @@ const Index = () => {
                   </div>
                   
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <EnhancedPressureChart 
+                    <PressureChart
                       data={data} 
                       currentTime={currentTime}
                       region={currentRegion}
@@ -404,28 +643,6 @@ const Index = () => {
                   data={data}
                   mode={pressureMode}
                 />
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white p-4 rounded-md shadow-md">
-                    <h3 className="text-lg font-semibold mb-4">Pressure Distribution</h3>
-                    <div className="h-[300px]">
-                      {/* Additional charts and visualizations can be added here */}
-                      <div className="flex items-center justify-center h-full bg-gray-50 rounded-md">
-                        <p className="text-gray-500">Additional analysis charts will be added in future updates</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white p-4 rounded-md shadow-md">
-                    <h3 className="text-lg font-semibold mb-4">Left-Right Comparison</h3>
-                    <div className="h-[300px]">
-                      {/* Additional charts and visualizations can be added here */}
-                      <div className="flex items-center justify-center h-full bg-gray-50 rounded-md">
-                        <p className="text-gray-500">Additional analysis charts will be added in future updates</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </TabsContent>
               
               <TabsContent value="gait-events" className="space-y-6">
@@ -435,28 +652,40 @@ const Index = () => {
                 />
               </TabsContent>
               
-              <TabsContent value="control-panel" className="space-y-6">
-                <div className="bg-white p-4 rounded-md shadow-md">
-                  <h3 className="text-lg font-semibold mb-4">Advanced Controls</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="p-4 border rounded-md">
-                      <h4 className="font-medium mb-2">Data Processing</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Use the Control Panel tab to apply filters, configure visualizations, and export data.
-                      </p>
-                    </div>
-                    
-                    <div className="p-4 border rounded-md">
-                      <h4 className="font-medium mb-2">Processing Settings</h4>
-                      <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-                        <li>Data sampled at 100Hz</li>
-                        <li>Heel strike threshold: 25 kPa</li>
-                        <li>Toe-off threshold: 20 kPa</li>
-                        <li>Low-pass filter available for smoothing</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
+              <TabsContent value="cop-analysis" className="space-y-6">
+                {data?.stancePhases ? (
+                  <CopTrajectoryVisualization 
+                    stancePhases={data.stancePhases}
+                    currentTime={currentTime}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="py-8">
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <FileBarChart2 className="h-12 w-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium mb-2">COP Data Not Available</h3>
+                        <p className="text-gray-500 mb-4 max-w-lg">
+                          To analyze Center of Pressure (COP) trajectories, you need to upload both a pressure data file and a corresponding FGT.xlsx file containing COP and force data.
+                        </p>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setDatasets([]);
+                            setData(null);
+                            setOriginalData(null);
+                          }}
+                        >
+                          Upload New Data With COP File
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="comparison" className="space-y-6">
+                <DatasetComparison datasets={datasets} />
               </TabsContent>
             </Tabs>
           </div>

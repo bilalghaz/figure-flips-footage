@@ -8,10 +8,27 @@ interface PressureChartProps {
   currentTime: number;
   region: string;
   mode: 'peak' | 'mean';
+  className?: string; // Add className prop for more flexible styling
 }
 
-const PressureChart: React.FC<PressureChartProps> = (props) => {
-  return <EnhancedPressureChart {...props} />;
+const PressureChart: React.FC<PressureChartProps> = ({ 
+  data, 
+  currentTime, 
+  region, 
+  mode,
+  className
+}) => {
+  // Wrap the component in a fixed-height div to prevent layout shifts
+  return (
+    <div className={`relative h-[400px] w-full overflow-hidden ${className || ''}`}>
+      <EnhancedPressureChart 
+        data={data} 
+        currentTime={currentTime} 
+        region={region} 
+        mode={mode} 
+      />
+    </div>
+  );
 };
 
 export default PressureChart;
