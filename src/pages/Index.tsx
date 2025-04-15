@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PressureDataUploader from '@/components/PressureDataUploader';
 import PressureHeatMap from '@/components/PressureHeatMap';
 import PressureDataTable from '@/components/PressureDataTable';
@@ -9,7 +10,7 @@ import VideoControls from '@/components/VideoControls';
 import UserControlPanel from '@/components/UserControlPanel';
 import CopTrajectoryVisualization from '@/components/CopTrajectoryVisualization';
 import DatasetComparison from '@/components/DatasetComparison';
-import { ProcessedData, PressureDataPoint, processPressureData, processCopForceData, mergeData, CopForceDataPoint } from '@/utils/pressureDataProcessor';
+import { ProcessedData, PressureDataPoint, processPressureData, processCopForceData, mergeData } from '@/utils/pressureDataProcessor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileSpreadsheet, ArrowLeft, Trash2, Database, FileBarChart2 } from 'lucide-react';
@@ -36,10 +37,22 @@ const Index = () => {
   const [activeDatasetIndex, setActiveDatasetIndex] = useState<number>(0);
   const [copFile, setCopFile] = useState<File | null>(null);
   
+  // Time range filtering
+  const [timeRange, setTimeRange] = useState<{start: number; end: number | null}>({
+    start: 0,
+    end: null
+  });
+  
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
+  const activeTabRef = useRef<string>(activeTab);
   
-  const getCurrentDataPoint = (): PressureDataPoint | null => {
+  // Update the ref when activeTab changes to avoid closure issues
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+  
+  const getCurrentDataPoint = useCallback((): PressureDataPoint | null => {
     if (!data || !data.pressureData.length) return null;
     
     const index = data.pressureData.findIndex(point => point.time > currentTime);
@@ -47,9 +60,9 @@ const Index = () => {
     if (index >= data.pressureData.length) return data.pressureData[data.pressureData.length - 1];
     
     return data.pressureData[index - 1];
-  };
+  }, [data, currentTime]);
   
-  const animate = (timestamp: number) => {
+  const animate = useCallback((timestamp: number) => {
     if (!lastTimeRef.current) {
       lastTimeRef.current = timestamp;
     }
@@ -60,18 +73,26 @@ const Index = () => {
     if (deltaTime > 0.05) {
       setCurrentTime(prevTime => {
         const newTime = prevTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
-        if (data && newTime >= data.pressureData[data.pressureData.length - 1].time) {
-          setIsPlaying(false);
-          return data.pressureData[data.pressureData.length - 1].time;
+        
+        if (data) {
+          const maxTime = timeRange.end !== null ? 
+            Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
+            data.pressureData[data.pressureData.length - 1].time;
+            
+          if (newTime >= maxTime) {
+            setIsPlaying(false);
+            return maxTime;
+          }
         }
         return newTime;
       });
     }
     
     if (isPlaying) {
+      // Only use requestAnimationFrame when tab is visible to improve performance
       animationRef.current = requestAnimationFrame(animate);
     }
-  };
+  }, [data, isPlaying, playbackSpeed, timeRange.end]);
   
   useEffect(() => {
     if (isPlaying) {
@@ -86,13 +107,17 @@ const Index = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, playbackSpeed]);
+  }, [isPlaying, playbackSpeed, animate]);
   
   const handlePlay = () => {
     if (!data) return;
     
-    if (currentTime >= data.pressureData[data.pressureData.length - 1].time) {
-      setCurrentTime(0);
+    const maxTime = timeRange.end !== null ? 
+      Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
+      data.pressureData[data.pressureData.length - 1].time;
+    
+    if (currentTime >= maxTime) {
+      setCurrentTime(timeRange.start || 0);
     }
     
     setIsPlaying(true);
@@ -105,7 +130,7 @@ const Index = () => {
   
   const handleReset = () => {
     setIsPlaying(false);
-    setCurrentTime(0);
+    setCurrentTime(timeRange.start || 0);
   };
   
   const handleSeek = (time: number) => {
@@ -116,14 +141,16 @@ const Index = () => {
   };
   
   const handleStepBackward = () => {
-    setCurrentTime(prevTime => Math.max(0, prevTime - 0.1));
+    setCurrentTime(prevTime => Math.max(timeRange.start || 0, prevTime - 0.1));
   };
   
   const handleStepForward = () => {
     if (!data) return;
-    setCurrentTime(prevTime => 
-      Math.min(data.pressureData[data.pressureData.length - 1].time, prevTime + 0.1)
-    );
+    const maxTime = timeRange.end !== null ? 
+      Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
+      data.pressureData[data.pressureData.length - 1].time;
+    
+    setCurrentTime(prevTime => Math.min(maxTime, prevTime + 0.1));
   };
   
   const handleSpeedChange = (speed: number) => {
@@ -132,6 +159,22 @@ const Index = () => {
   
   const handleMuteToggle = () => {
     setIsMuted(!isMuted);
+  };
+  
+  const handleTimeRangeChange = (startTime: number, endTime: number) => {
+    setTimeRange({
+      start: startTime,
+      end: endTime
+    });
+    
+    // Set current time to start of range
+    setCurrentTime(startTime);
+    
+    toast({
+      title: "Time range set",
+      description: `Analysis range set from ${startTime.toFixed(2)}s to ${endTime.toFixed(2)}s`,
+      duration: 3000,
+    });
   };
   
   const handleExportData = () => {
@@ -198,6 +241,12 @@ const Index = () => {
         setOriginalData(JSON.parse(JSON.stringify(mergedData)));
         setCurrentTime(mergedData.pressureData[0].time);
         
+        // Reset time range for new data
+        setTimeRange({
+          start: mergedData.pressureData[0].time,
+          end: mergedData.pressureData[mergedData.pressureData.length - 1].time
+        });
+        
         toast({
           title: "Data loaded successfully",
           description: `Processed ${mergedData.pressureData.length} data points with COP data`,
@@ -219,6 +268,12 @@ const Index = () => {
         setData(processedData);
         setOriginalData(JSON.parse(JSON.stringify(processedData)));
         setCurrentTime(processedData.pressureData[0].time);
+        
+        // Reset time range for new data
+        setTimeRange({
+          start: processedData.pressureData[0].time,
+          end: processedData.pressureData[processedData.pressureData.length - 1].time
+        });
       } finally {
         setIsProcessing(false);
       }
@@ -228,6 +283,12 @@ const Index = () => {
       setData(processedData);
       setOriginalData(JSON.parse(JSON.stringify(processedData)));
       setCurrentTime(processedData.pressureData[0].time);
+      
+      // Reset time range for new data
+      setTimeRange({
+        start: processedData.pressureData[0].time,
+        end: processedData.pressureData[processedData.pressureData.length - 1].time
+      });
       
       toast({
         title: "Data loaded successfully",
@@ -282,6 +343,14 @@ const Index = () => {
         return newDatasets;
       });
       
+      // Reset time range
+      setTimeRange({
+        start: resetData.pressureData[0].time,
+        end: resetData.pressureData[resetData.pressureData.length - 1].time
+      });
+      
+      setCurrentTime(resetData.pressureData[0].time);
+      
       toast({
         title: "Data reset",
         description: "Returned to original unfiltered data",
@@ -296,6 +365,13 @@ const Index = () => {
       setData(datasets[index]);
       setOriginalData(JSON.parse(JSON.stringify(datasets[index])));
       setCurrentTime(datasets[index].pressureData[0].time);
+      
+      // Reset time range for the selected dataset
+      setTimeRange({
+        start: datasets[index].pressureData[0].time,
+        end: datasets[index].pressureData[datasets[index].pressureData.length - 1].time
+      });
+      
       setIsPlaying(false);
     }
   };
@@ -318,16 +394,169 @@ const Index = () => {
       setData(newDatasets[newIndex]);
       setOriginalData(JSON.parse(JSON.stringify(newDatasets[newIndex])));
       setCurrentTime(newDatasets[newIndex].pressureData[0].time);
+      
+      // Reset time range
+      setTimeRange({
+        start: newDatasets[newIndex].pressureData[0].time,
+        end: newDatasets[newIndex].pressureData[newDatasets[newIndex].pressureData.length - 1].time
+      });
     } else if (index < activeDatasetIndex) {
       setActiveDatasetIndex(activeDatasetIndex - 1);
     }
   };
   
+  // For performance optimization, conditionally render active tab content only
+  const renderActiveTabContent = () => {
+    if (!data) return null;
+    
+    switch (activeTab) {
+      case 'visualization':
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <PressureHeatMap 
+                dataPoint={getCurrentDataPoint()} 
+                side="left"
+                maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
+                mode={pressureMode}
+              />
+              
+              <PressureHeatMap 
+                dataPoint={getCurrentDataPoint()} 
+                side="right"
+                maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
+                mode={pressureMode}
+              />
+            </div>
+            
+            <div className="bg-white p-4 rounded-md shadow-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Pressure Analysis</h2>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm">Region:</span>
+                    <Select
+                      value={currentRegion}
+                      onValueChange={setCurrentRegion}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select Region" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="heel">Heel</SelectItem>
+                        <SelectItem value="medialMidfoot">Medial Midfoot</SelectItem>
+                        <SelectItem value="lateralMidfoot">Lateral Midfoot</SelectItem>
+                        <SelectItem value="forefoot">Forefoot</SelectItem>
+                        <SelectItem value="toes">Toes</SelectItem>
+                        <SelectItem value="hallux">Hallux</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm">Mode:</span>
+                    <Tabs 
+                      value={pressureMode}
+                      onValueChange={(value) => setPressureMode(value as 'peak' | 'mean')}
+                      className="w-[200px]"
+                    >
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="peak">Peak Pressure</TabsTrigger>
+                        <TabsTrigger value="mean">Mean Pressure</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <PressureChart
+                  data={data} 
+                  currentTime={currentTime}
+                  region={currentRegion}
+                  mode={pressureMode}
+                />
+                <PressureDataTable 
+                  dataPoint={getCurrentDataPoint()}
+                  mode={pressureMode}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'analysis':
+        return (
+          <div className="space-y-6">
+            <AveragePressureHeatmap 
+              data={data}
+              mode={pressureMode}
+            />
+          </div>
+        );
+        
+      case 'gait-events':
+        return (
+          <div className="space-y-6">
+            <GaitEventAnalysis 
+              data={data}
+              currentTime={currentTime}
+            />
+          </div>
+        );
+        
+      case 'cop-analysis':
+        return (
+          <div className="space-y-6">
+            {data?.stancePhases ? (
+              <CopTrajectoryVisualization 
+                stancePhases={data.stancePhases}
+                currentTime={currentTime}
+              />
+            ) : (
+              <Card>
+                <CardContent className="py-8">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <FileBarChart2 className="h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">COP Data Not Available</h3>
+                    <p className="text-gray-500 mb-4 max-w-lg">
+                      To analyze Center of Pressure (COP) trajectories, you need to upload both a pressure data file and a corresponding FGT.xlsx file containing COP and force data.
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        setDatasets([]);
+                        setData(null);
+                        setOriginalData(null);
+                      }}
+                    >
+                      Upload New Data With COP File
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+        
+      case 'comparison':
+        return (
+          <div className="space-y-6">
+            <DatasetComparison datasets={datasets} />
+          </div>
+        );
+        
+      default:
+        return null;
+    }
+  };
+  
   useEffect(() => {
     if (data) {
-      setCurrentTime(data.pressureData[0].time);
+      setCurrentTime(timeRange.start || data.pressureData[0].time);
     }
-  }, [data]);
+  }, [data, timeRange.start]);
   
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 overflow-x-hidden">
@@ -433,6 +662,12 @@ const Index = () => {
                     {data?.pressureData[data.pressureData.length - 1].time.toFixed(2) || 0}s
                   </Badge>
                   
+                  {timeRange.start !== 0 || timeRange.end !== null && (
+                    <Badge variant="outline" className="bg-green-50 text-green-800">
+                      Range: {timeRange.start.toFixed(1)}s - {timeRange.end?.toFixed(1) || 'End'}s
+                    </Badge>
+                  )}
+                  
                   {data?.copForceData && (
                     <Badge variant="outline" className="bg-green-50 text-green-800">
                       COP Data Available
@@ -503,6 +738,7 @@ const Index = () => {
                 onMuteToggle={handleMuteToggle}
                 onStepBackward={handleStepBackward}
                 onStepForward={handleStepForward}
+                onTimeRangeChange={handleTimeRangeChange}
               />
             </div>
             
@@ -530,126 +766,9 @@ const Index = () => {
                 />
               </div>
               
-              <TabsContent value="visualization" className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <PressureHeatMap 
-                    dataPoint={getCurrentDataPoint()} 
-                    side="left"
-                    maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
-                    mode={pressureMode}
-                  />
-                  
-                  <PressureHeatMap 
-                    dataPoint={getCurrentDataPoint()} 
-                    side="right"
-                    maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
-                    mode={pressureMode}
-                  />
-                </div>
-                
-                <div className="bg-white p-4 rounded-md shadow-md">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold">Pressure Analysis</h2>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm">Region:</span>
-                        <Select
-                          value={currentRegion}
-                          onValueChange={setCurrentRegion}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select Region" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="heel">Heel</SelectItem>
-                            <SelectItem value="medialMidfoot">Medial Midfoot</SelectItem>
-                            <SelectItem value="lateralMidfoot">Lateral Midfoot</SelectItem>
-                            <SelectItem value="forefoot">Forefoot</SelectItem>
-                            <SelectItem value="toes">Toes</SelectItem>
-                            <SelectItem value="hallux">Hallux</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm">Mode:</span>
-                        <Tabs 
-                          value={pressureMode}
-                          onValueChange={(value) => setPressureMode(value as 'peak' | 'mean')}
-                          className="w-[200px]"
-                        >
-                          <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="peak">Peak Pressure</TabsTrigger>
-                            <TabsTrigger value="mean">Mean Pressure</TabsTrigger>
-                          </TabsList>
-                        </Tabs>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <PressureChart
-                      data={data} 
-                      currentTime={currentTime}
-                      region={currentRegion}
-                      mode={pressureMode}
-                    />
-                    <PressureDataTable 
-                      dataPoint={getCurrentDataPoint()}
-                      mode={pressureMode}
-                    />
-                  </div>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="analysis" className="space-y-6">
-                <AveragePressureHeatmap 
-                  data={data}
-                  mode={pressureMode}
-                />
-              </TabsContent>
-              
-              <TabsContent value="gait-events" className="space-y-6">
-                <GaitEventAnalysis 
-                  data={data}
-                  currentTime={currentTime}
-                />
-              </TabsContent>
-              
-              <TabsContent value="cop-analysis" className="space-y-6">
-                {data?.stancePhases ? (
-                  <CopTrajectoryVisualization 
-                    stancePhases={data.stancePhases}
-                    currentTime={currentTime}
-                  />
-                ) : (
-                  <Card>
-                    <CardContent className="py-8">
-                      <div className="flex flex-col items-center justify-center text-center">
-                        <FileBarChart2 className="h-12 w-12 text-gray-400 mb-4" />
-                        <h3 className="text-lg font-medium mb-2">COP Data Not Available</h3>
-                        <p className="text-gray-500 mb-4 max-w-lg">
-                          To analyze Center of Pressure (COP) trajectories, you need to upload both a pressure data file and a corresponding FGT.xlsx file containing COP and force data.
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setDatasets([]);
-                            setData(null);
-                            setOriginalData(null);
-                          }}
-                        >
-                          Upload New Data With COP File
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="comparison" className="space-y-6">
-                <DatasetComparison datasets={datasets} />
+              {/* Only render the active tab content for better performance */}
+              <TabsContent value={activeTab} className="focus:outline-none">
+                {renderActiveTabContent()}
               </TabsContent>
             </Tabs>
           </div>

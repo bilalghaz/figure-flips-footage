@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ErrorBar, ReferenceLine } from 'recharts';
 import { ScatterChart, Scatter, ZAxis } from 'recharts';
 import { StancePhase } from '@/utils/pressureDataProcessor';
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip } from "@/components/ui/chart";
 import { LoaderCircle } from "lucide-react";
 
 interface CopTrajectoryVisualizationProps {
@@ -22,16 +22,25 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
   const [activeView, setActiveView] = useState<'trajectory' | 'barChart' | 'combined'>('trajectory');
   const [footView, setFootView] = useState<'combined' | 'left' | 'right'>('combined');
   const [isLoading, setIsLoading] = useState(true);
+  const [chartOpacity, setChartOpacity] = useState(0);
   
+  // Initialize chart visibility effect
   useEffect(() => {
-    // Simulate loading to ensure visualization renders properly
+    // Add a small loading delay to ensure chart renders properly
     setIsLoading(true);
+    setChartOpacity(0);
+    
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 500);
+      const fadeTimer = setTimeout(() => {
+        setChartOpacity(1);
+      }, 100);
+      
+      return () => clearTimeout(fadeTimer);
+    }, 800);
     
     return () => clearTimeout(timer);
-  }, [stancePhases]);
+  }, [stancePhases, footView]);
   
   // Filter phases by foot
   const leftFootPhases = useMemo(() => 
@@ -68,13 +77,13 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
   }, [currentStancePhase, stancePercentage]);
   
   // Get the phase to display based on active view
-  const getDisplayPhases = () => {
+  const getDisplayPhases = useCallback(() => {
     if (footView === 'left') return leftFootPhases;
     if (footView === 'right') return rightFootPhases;
     return stancePhases;
-  };
+  }, [footView, leftFootPhases, rightFootPhases, stancePhases]);
   
-  const displayPhases = getDisplayPhases();
+  const displayPhases = useMemo(() => getDisplayPhases(), [getDisplayPhases]);
 
   // Prepare bar chart data
   const barChartData = useMemo(() => {
@@ -134,7 +143,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
             <CardTitle className="text-lg">Center of Pressure Analysis</CardTitle>
             <div className="flex items-center animate-pulse">
               <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-              <span>Loading COP data...</span>
+              <span>Processing COP data...</span>
             </div>
           </div>
         </CardHeader>
@@ -182,7 +191,13 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div 
+          className="space-y-4" 
+          style={{ 
+            opacity: chartOpacity,
+            transition: 'opacity 0.3s ease-in-out'
+          }}
+        >
           {displayPhases.length > 0 ? (
             <>
               {(activeView === 'trajectory' || activeView === 'combined') && (
@@ -345,7 +360,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                           <Bar 
                             dataKey="apPosition" 
                             name="AP Position" 
-                            fill={String("#1f77b4")}
+                            fill="#1f77b4"
                           >
                             <ErrorBar dataKey="error" width={4} strokeWidth={1} />
                           </Bar>

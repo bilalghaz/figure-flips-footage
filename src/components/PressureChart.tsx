@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import EnhancedPressureChart from './EnhancedPressureChart';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,6 +13,9 @@ interface PressureChartProps {
   className?: string;
 }
 
+// Memoize the chart component to prevent unnecessary re-renders
+const MemoizedEnhancedPressureChart = memo(EnhancedPressureChart);
+
 const PressureChart: React.FC<PressureChartProps> = ({ 
   data, 
   currentTime, 
@@ -21,15 +24,31 @@ const PressureChart: React.FC<PressureChartProps> = ({
   className
 }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [chartOpacity, setChartOpacity] = useState(0);
+  const lastRegionRef = useRef(region);
+  const lastModeRef = useRef(mode);
   
   useEffect(() => {
-    // Add a small loading delay to ensure chart renders properly
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
-    
-    return () => clearTimeout(timer);
+    // Only trigger loading state when region or mode changes
+    if (lastRegionRef.current !== region || lastModeRef.current !== mode) {
+      setIsLoading(true);
+      setChartOpacity(0);
+      
+      lastRegionRef.current = region;
+      lastModeRef.current = mode;
+      
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+        // After loading state ends, gradually fade in the chart
+        const fadeTimer = setTimeout(() => {
+          setChartOpacity(1);
+        }, 50);
+        
+        return () => clearTimeout(fadeTimer);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
   }, [data, region, mode]);
   
   if (isLoading || !data) {
@@ -50,9 +69,13 @@ const PressureChart: React.FC<PressureChartProps> = ({
   return (
     <div 
       className={`relative h-[400px] w-full overflow-hidden ${className || ''}`} 
-      style={{ contain: 'size layout' }}
+      style={{ 
+        contain: 'size layout',
+        opacity: chartOpacity,
+        transition: 'opacity 0.2s ease-in-out'
+      }}
     >
-      <EnhancedPressureChart 
+      <MemoizedEnhancedPressureChart 
         data={data} 
         currentTime={currentTime} 
         region={region} 
