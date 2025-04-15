@@ -18,9 +18,9 @@ const PressureChart: React.FC<PressureChartProps> = ({
   mode,
   className
 }) => {
-  // Prevent layout shifts by using a fixed height container
+  // Prevent layout shifts and display issues with appropriate container styling
   return (
-    <div className={`relative h-[400px] w-full overflow-hidden ${className || ''}`}>
+    <div className={`relative h-[400px] w-full overflow-hidden ${className || ''}`} style={{ contain: 'size layout' }}>
       <EnhancedPressureChart 
         data={data} 
         currentTime={currentTime} 

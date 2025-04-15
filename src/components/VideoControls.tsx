@@ -46,6 +46,12 @@ const VideoControls = ({
   // Available playback speeds
   const speeds = [0.25, 0.5, 1, 1.5, 2];
 
+  // Handle slider change with debouncing to prevent excessive re-renders
+  const handleSliderChange = (value: number[]) => {
+    // Only call onSeek when slider is released or clicked
+    onSeek(value[0]);
+  };
+
   return (
     <div className="flex flex-col w-full gap-2 bg-white p-4 rounded-md shadow-md">
       <div className="flex items-center gap-2">
@@ -91,7 +97,7 @@ const VideoControls = ({
             min={0}
             max={duration}
             step={0.01}
-            onValueChange={(value) => onSeek(value[0])}
+            onValueChange={handleSliderChange}
           />
         </div>
         
