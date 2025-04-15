@@ -385,10 +385,11 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                             }}
                           />
                           <Legend />
+                          {/* Fixed the TypeScript error by using static colors instead of a function */}
                           <Bar 
                             dataKey="apPosition" 
                             name="AP Position" 
-                            fill={(data) => data.color}
+                            fill="#8884d8"
                           >
                             <ErrorBar dataKey="error" width={4} strokeWidth={1} />
                           </Bar>
