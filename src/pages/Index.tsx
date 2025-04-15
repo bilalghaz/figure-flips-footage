@@ -1,5 +1,4 @@
-
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { usePlayback } from './index/hooks/usePlayback';
 import { useDatasetManager } from './index/hooks/useDatasetManager';
@@ -12,6 +11,7 @@ import TabContainer from './index/components/TabContainer';
 const Index = () => {
   const { toast } = useToast();
   const renderCount = useRef(0);
+  const [activeTab, setActiveTab] = useState<string>('visualization');
   
   // Dataset management
   const {

@@ -47,27 +47,30 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     lastTimeRef.current = timestamp;
     
     if (deltaTime > 0.05) {
-      handleTimeChange(prevTime => {
-        const newTime = prevTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
-        
-        if (data) {
-          const maxTime = timeRange.end !== null ? 
-            Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
-            data.pressureData[data.pressureData.length - 1].time;
-            
-          if (newTime >= maxTime) {
-            setIsPlaying(false);
-            return maxTime;
-          }
+      // Calculate new time first, then pass the calculated value
+      const prevTime = currentTime;
+      const newTime = prevTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
+      
+      if (data) {
+        const maxTime = timeRange.end !== null ? 
+          Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
+          data.pressureData[data.pressureData.length - 1].time;
+          
+        if (newTime >= maxTime) {
+          setIsPlaying(false);
+          handleTimeChange(maxTime);
+        } else {
+          handleTimeChange(newTime);
         }
-        return newTime;
-      });
+      } else {
+        handleTimeChange(newTime);
+      }
     }
     
     if (isPlaying) {
       animationRef.current = requestAnimationFrame(animate);
     }
-  }, [data, isPlaying, playbackSpeed, timeRange.end, handleTimeChange]);
+  }, [data, currentTime, isPlaying, playbackSpeed, timeRange.end, handleTimeChange]);
   
   useEffect(() => {
     if (isPlaying) {
@@ -116,17 +119,22 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
   }, [isPlaying, handleTimeChange]);
   
   const handleStepBackward = useCallback(() => {
-    handleTimeChange(prevTime => Math.max(timeRange.start || 0, prevTime - 0.1));
-  }, [timeRange.start, handleTimeChange]);
+    // Calculate the new time value first, then pass it
+    const newTime = Math.max(timeRange.start || 0, currentTime - 0.1);
+    handleTimeChange(newTime);
+  }, [timeRange.start, currentTime, handleTimeChange]);
   
   const handleStepForward = useCallback(() => {
     if (!data) return;
+    
     const maxTime = timeRange.end !== null ? 
       Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
       data.pressureData[data.pressureData.length - 1].time;
     
-    handleTimeChange(prevTime => Math.min(maxTime, prevTime + 0.1));
-  }, [data, timeRange.end, handleTimeChange]);
+    // Calculate the new time value first, then pass it
+    const newTime = Math.min(maxTime, currentTime + 0.1);
+    handleTimeChange(newTime);
+  }, [data, timeRange.end, currentTime, handleTimeChange]);
   
   const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
