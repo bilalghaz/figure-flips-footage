@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import PressureDataUploader from '@/components/PressureDataUploader';
 import PressureHeatMap from '@/components/PressureHeatMap';
@@ -33,7 +32,6 @@ const Index = () => {
   const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
   const [activeTab, setActiveTab] = useState<string>('visualization');
   
-  // Multiple datasets support
   const [datasets, setDatasets] = useState<ProcessedData[]>([]);
   const [activeDatasetIndex, setActiveDatasetIndex] = useState<number>(0);
   const [copFile, setCopFile] = useState<File | null>(null);
@@ -41,20 +39,16 @@ const Index = () => {
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   
-  // Current data point based on time
   const getCurrentDataPoint = (): PressureDataPoint | null => {
     if (!data || !data.pressureData.length) return null;
     
-    // Find the closest data point for the current time
     const index = data.pressureData.findIndex(point => point.time > currentTime);
     if (index <= 0) return data.pressureData[0];
     if (index >= data.pressureData.length) return data.pressureData[data.pressureData.length - 1];
     
-    // Return the previous point (closest to current time)
     return data.pressureData[index - 1];
   };
   
-  // Animation loop - with improved stability to prevent screen shaking
   const animate = (timestamp: number) => {
     if (!lastTimeRef.current) {
       lastTimeRef.current = timestamp;
@@ -63,7 +57,6 @@ const Index = () => {
     const deltaTime = (timestamp - lastTimeRef.current) / 1000;
     lastTimeRef.current = timestamp;
     
-    // Smoother playback with frame limiting
     if (deltaTime > 0.05) {
       setCurrentTime(prevTime => {
         const newTime = prevTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
@@ -80,7 +73,6 @@ const Index = () => {
     }
   };
   
-  // Start/stop animation
   useEffect(() => {
     if (isPlaying) {
       animationRef.current = requestAnimationFrame(animate);
@@ -96,11 +88,9 @@ const Index = () => {
     };
   }, [isPlaying, playbackSpeed]);
   
-  // Play/pause handlers
   const handlePlay = () => {
     if (!data) return;
     
-    // If we're at the end, restart
     if (currentTime >= data.pressureData[data.pressureData.length - 1].time) {
       setCurrentTime(0);
     }
@@ -119,7 +109,6 @@ const Index = () => {
   };
   
   const handleSeek = (time: number) => {
-    // Stop playback when manually seeking to prevent jerky motion
     if (isPlaying) {
       setIsPlaying(false);
     }
@@ -145,7 +134,6 @@ const Index = () => {
     setIsMuted(!isMuted);
   };
   
-  // Export data
   const handleExportData = () => {
     if (!data) return;
     
@@ -154,7 +142,6 @@ const Index = () => {
     
     const regions = ['heel', 'medialMidfoot', 'lateralMidfoot', 'forefoot', 'toes', 'hallux'];
     
-    // Prepare data for export
     const exportData = [
       ['Region', 'Left Foot Peak (kPa)', 'Right Foot Peak (kPa)', 'Difference (kPa)', 
        'Left Foot Mean (kPa)', 'Right Foot Mean (kPa)', 'Difference (kPa)'],
@@ -179,16 +166,13 @@ const Index = () => {
       })
     ];
     
-    // Create a worksheet
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pressure Data');
     
-    // Generate filename with current time
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `pressure_data_${currentTime.toFixed(2)}s_${timestamp}.xlsx`;
     
-    // Trigger download
     XLSX.writeFile(wb, filename);
     
     toast({
@@ -198,26 +182,18 @@ const Index = () => {
     });
   };
   
-  // Handle data processing
   const handleDataProcessed = async (processedData: ProcessedData) => {
-    // If there's a matching COP file, process it too
     if (copFile) {
       try {
         setIsProcessing(true);
         
-        // Process the COP file
         const copForceData = await processCopForceData(copFile);
         
-        // Merge the data
         const mergedData = mergeData(processedData, copForceData);
         
-        // Add to datasets
         setDatasets(prev => [...prev, mergedData]);
-        
-        // Set as active dataset
         setActiveDatasetIndex(datasets.length);
         
-        // Set as current data
         setData(mergedData);
         setOriginalData(JSON.parse(JSON.stringify(mergedData)));
         setCurrentTime(mergedData.pressureData[0].time);
@@ -228,7 +204,6 @@ const Index = () => {
           duration: 3000,
         });
         
-        // Clear COP file after processing
         setCopFile(null);
       } catch (error) {
         console.error('Error processing COP data:', error);
@@ -239,7 +214,6 @@ const Index = () => {
           duration: 5000,
         });
         
-        // Still add the pressure data without COP
         setDatasets(prev => [...prev, processedData]);
         setActiveDatasetIndex(datasets.length);
         setData(processedData);
@@ -249,7 +223,6 @@ const Index = () => {
         setIsProcessing(false);
       }
     } else {
-      // Just add the pressure data
       setDatasets(prev => [...prev, processedData]);
       setActiveDatasetIndex(datasets.length);
       setData(processedData);
@@ -264,7 +237,6 @@ const Index = () => {
     }
   };
   
-  // Handle COP file selection
   const handleCopFileSelected = (file: File) => {
     if (file.name.toLowerCase().includes('fgt') || file.name.toLowerCase().includes('cop')) {
       setCopFile(file);
@@ -283,11 +255,9 @@ const Index = () => {
     }
   };
   
-  // Handle filter applied
   const handleFilterApplied = (filteredData: ProcessedData) => {
     setData(filteredData);
     
-    // Also update the datasets array
     setDatasets(prev => {
       const newDatasets = [...prev];
       newDatasets[activeDatasetIndex] = filteredData;
@@ -301,13 +271,11 @@ const Index = () => {
     });
   };
   
-  // Handle reset to original data
   const handleResetData = () => {
     if (originalData) {
       const resetData = JSON.parse(JSON.stringify(originalData));
       setData(resetData);
       
-      // Also update the datasets array
       setDatasets(prev => {
         const newDatasets = [...prev];
         newDatasets[activeDatasetIndex] = resetData;
@@ -322,21 +290,18 @@ const Index = () => {
     }
   };
   
-  // Switch between datasets
   const handleDatasetChange = (index: number) => {
     if (index >= 0 && index < datasets.length) {
       setActiveDatasetIndex(index);
       setData(datasets[index]);
       setOriginalData(JSON.parse(JSON.stringify(datasets[index])));
       setCurrentTime(datasets[index].pressureData[0].time);
-      setIsPlaying(false); // Stop playback when switching
+      setIsPlaying(false);
     }
   };
   
-  // Remove a dataset
   const handleRemoveDataset = (index: number) => {
     if (datasets.length <= 1) {
-      // If it's the last dataset, clear everything
       setDatasets([]);
       setData(null);
       setOriginalData(null);
@@ -347,21 +312,17 @@ const Index = () => {
     const newDatasets = datasets.filter((_, i) => i !== index);
     setDatasets(newDatasets);
     
-    // Adjust active index if needed
     if (index === activeDatasetIndex) {
-      // Set to the previous dataset, or the first one if that was the first
       const newIndex = Math.max(0, index - 1);
       setActiveDatasetIndex(newIndex);
       setData(newDatasets[newIndex]);
       setOriginalData(JSON.parse(JSON.stringify(newDatasets[newIndex])));
       setCurrentTime(newDatasets[newIndex].pressureData[0].time);
     } else if (index < activeDatasetIndex) {
-      // Adjust the active index down by one
       setActiveDatasetIndex(activeDatasetIndex - 1);
     }
   };
   
-  // Initialize to the start if data changes
   useEffect(() => {
     if (data) {
       setCurrentTime(data.pressureData[0].time);
@@ -386,6 +347,7 @@ const Index = () => {
                   <h3 className="text-lg font-semibold mb-2">COP/Force File (Optional)</h3>
                   <p className="text-sm text-gray-500 mb-4">
                     Upload an FGT.xlsx file containing COP and force data for enhanced analysis.
+                    The file should have columns for time, left/right force, and left/right COP X/Y coordinates.
                   </p>
                   <div className="border-2 border-dashed border-gray-300 rounded-md p-4">
                     {copFile ? (
@@ -411,6 +373,9 @@ const Index = () => {
                       <div className="flex flex-col items-center">
                         <FileBarChart2 className="h-10 w-10 text-gray-400 mb-2" />
                         <p className="text-sm text-gray-500 mb-1">Drag and drop an FGT.xlsx file or click to browse</p>
+                        <p className="text-xs text-gray-500 mb-2">
+                          File should contain columns for time, left/right force, and left/right COP X/Y coordinates
+                        </p>
                         <input
                           type="file"
                           accept=".xlsx"
@@ -488,7 +453,6 @@ const Index = () => {
                 </div>
               </div>
               
-              {/* Dataset selection */}
               {datasets.length > 1 && (
                 <div className="mb-4 flex flex-wrap gap-2">
                   {datasets.map((dataset, index) => (

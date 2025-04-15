@@ -208,54 +208,123 @@ export const processCopForceData = async (file: File): Promise<CopForceDataPoint
   // Get the first sheet
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   
-  // Convert to JSON, skipping the first 9 rows (metadata)
-  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, range: 9 });
+  // Convert to JSON, including all rows
+  const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
   
-  // Extract column headers
-  const headers = jsonData[0] as string[];
-  // Remove the headers row from the data
-  const data = jsonData.slice(1) as any[][];
+  console.log('FGT data loaded, processing...');
   
-  // Expected columns
-  // A: time[secs]
-  // B: left_force[N]
-  // C: left_x[mm]
-  // D: left_y[mm]
-  // E: right_force[N]
-  // F: right_x[mm]
-  // G: right_y[mm]
+  // Finding data rows and headers
+  // In this format, data typically starts at row 10 (index 9)
+  // Headers are at row 8 (index 7)
+  const headerRow = jsonData[7] as string[];
+  const dataRows = jsonData.slice(9) as any[][];
   
-  // Find the column indices
-  const timeColumnIndex = headers.findIndex(header => header.includes('time'));
-  const leftForceIndex = headers.findIndex(header => header.includes('left_force'));
-  const leftXIndex = headers.findIndex(header => header.includes('left_x'));
-  const leftYIndex = headers.findIndex(header => header.includes('left_y'));
-  const rightForceIndex = headers.findIndex(header => header.includes('right_force'));
-  const rightXIndex = headers.findIndex(header => header.includes('right_x'));
-  const rightYIndex = headers.findIndex(header => header.includes('right_y'));
+  console.log('Header row:', headerRow);
   
-  if (timeColumnIndex === -1) {
-    throw new Error('Time column not found in the data');
+  if (!headerRow || !dataRows.length) {
+    throw new Error('Could not identify headers or data in the FGT file');
+  }
+  
+  // Find the column indices by looking at the header row
+  const timeColumnIndex = 0; // First column is always time
+  let leftForceIndex = -1;
+  let leftXIndex = -1;
+  let leftYIndex = -1;
+  let rightForceIndex = -1;
+  let rightXIndex = -1;
+  let rightYIndex = -1;
+  
+  // Search for column headers
+  headerRow.forEach((header, index) => {
+    if (!header) return;
+    
+    const headerStr = String(header).toLowerCase();
+    
+    if (headerStr.includes('left') && headerStr.includes('force')) {
+      leftForceIndex = index;
+    } else if (headerStr.includes('left') && headerStr.includes('x')) {
+      leftXIndex = index;
+    } else if (headerStr.includes('left') && headerStr.includes('y')) {
+      leftYIndex = index;
+    } else if (headerStr.includes('right') && headerStr.includes('force')) {
+      rightForceIndex = index;
+    } else if (headerStr.includes('right') && headerStr.includes('x')) {
+      rightXIndex = index;
+    } else if (headerStr.includes('right') && headerStr.includes('y')) {
+      rightYIndex = index;
+    }
+  });
+  
+  console.log('Column indices:', {
+    time: timeColumnIndex,
+    leftForce: leftForceIndex,
+    leftX: leftXIndex,
+    leftY: leftYIndex,
+    rightForce: rightForceIndex,
+    rightX: rightXIndex,
+    rightY: rightYIndex
+  });
+  
+  // Check if we found all necessary columns
+  if (leftForceIndex === -1 || leftXIndex === -1 || leftYIndex === -1 || 
+      rightForceIndex === -1 || rightXIndex === -1 || rightYIndex === -1) {
+    console.error('Missing columns:', {
+      leftForce: leftForceIndex === -1,
+      leftX: leftXIndex === -1,
+      leftY: leftYIndex === -1,
+      rightForce: rightForceIndex === -1,
+      rightX: rightXIndex === -1,
+      rightY: rightYIndex === -1
+    });
+    throw new Error('Could not find all required columns in the FGT file');
   }
   
   // Process the data
   const copForceData: CopForceDataPoint[] = [];
   
   // Process each row of data
-  data.forEach((row) => {
+  dataRows.forEach((row) => {
     if (!row[timeColumnIndex]) return; // Skip rows without time data
     
-    const time = parseFloat(row[timeColumnIndex]);
+    // Parse time value - ensure it's a number
+    const time = parseFloat(String(row[timeColumnIndex]));
+    if (isNaN(time)) return; // Skip if time is not a valid number
     
+    // Create data point with default values in case some are missing
     const dataPoint: CopForceDataPoint = {
       time,
-      leftForce: parseFloat(row[leftForceIndex] || 0),
-      leftCopX: parseFloat(row[leftXIndex] || 0),
-      leftCopY: parseFloat(row[leftYIndex] || 0),
-      rightForce: parseFloat(row[rightForceIndex] || 0),
-      rightCopX: parseFloat(row[rightXIndex] || 0),
-      rightCopY: parseFloat(row[rightYIndex] || 0)
+      leftForce: 0,
+      leftCopX: 0,
+      leftCopY: 0,
+      rightForce: 0,
+      rightCopX: 0,
+      rightCopY: 0
     };
+    
+    // Parse values if they exist in the row
+    if (leftForceIndex >= 0 && row[leftForceIndex] !== undefined) {
+      dataPoint.leftForce = parseFloat(String(row[leftForceIndex])) || 0;
+    }
+    
+    if (leftXIndex >= 0 && row[leftXIndex] !== undefined) {
+      dataPoint.leftCopX = parseFloat(String(row[leftXIndex])) || 0;
+    }
+    
+    if (leftYIndex >= 0 && row[leftYIndex] !== undefined) {
+      dataPoint.leftCopY = parseFloat(String(row[leftYIndex])) || 0;
+    }
+    
+    if (rightForceIndex >= 0 && row[rightForceIndex] !== undefined) {
+      dataPoint.rightForce = parseFloat(String(row[rightForceIndex])) || 0;
+    }
+    
+    if (rightXIndex >= 0 && row[rightXIndex] !== undefined) {
+      dataPoint.rightCopX = parseFloat(String(row[rightXIndex])) || 0;
+    }
+    
+    if (rightYIndex >= 0 && row[rightYIndex] !== undefined) {
+      dataPoint.rightCopY = parseFloat(String(row[rightYIndex])) || 0;
+    }
     
     copForceData.push(dataPoint);
   });
