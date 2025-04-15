@@ -25,25 +25,29 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
   const [chartOpacity, setChartOpacity] = useState(0);
   const [dataReady, setDataReady] = useState(false);
   
-  // Initialize chart visibility effect
+  // Optimize initial loading with requestAnimationFrame
   useEffect(() => {
-    // Add a small loading delay to ensure chart renders properly
+    if (!stancePhases || stancePhases.length === 0) {
+      setDataReady(false);
+      return;
+    }
+    
     setIsLoading(true);
     setChartOpacity(0);
     
-    // This helps with performance by deferring heavy calculations
-    const timer = setTimeout(() => {
+    // Debounce and optimize loading states
+    const loadingTimer = setTimeout(() => {
       setDataReady(true);
-      setIsLoading(false);
-      
-      const fadeTimer = setTimeout(() => {
-        setChartOpacity(1);
-      }, 100);
-      
-      return () => clearTimeout(fadeTimer);
-    }, 300);
+      requestAnimationFrame(() => {
+        setIsLoading(false);
+        
+        requestAnimationFrame(() => {
+          setChartOpacity(1);
+        });
+      });
+    }, 200);
     
-    return () => clearTimeout(timer);
+    return () => clearTimeout(loadingTimer);
   }, [stancePhases, footView]);
   
   // Filter phases by foot - memoized for performance
@@ -55,7 +59,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     stancePhases.filter(phase => phase.foot === 'right'),
   [stancePhases]);
 
-  // Find the current stance phase
+  // Find the current stance phase - memoized for performance
   const currentStancePhase = useMemo(() => {
     if (!stancePhases || stancePhases.length === 0) return null;
     
@@ -64,7 +68,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     );
   }, [stancePhases, currentTime]);
   
-  // Calculate percentage through current stance
+  // Calculate percentage through current stance - memoized for performance
   const stancePercentage = useMemo(() => {
     if (!currentStancePhase) return null;
     
@@ -72,7 +76,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     return Math.round((elapsedTime / currentStancePhase.duration) * 100);
   }, [currentStancePhase, currentTime]);
   
-  // Find the current position in the trajectory
+  // Find the current position in the trajectory - memoized for performance
   const currentPosition = useMemo(() => {
     if (!currentStancePhase || !stancePercentage) return null;
     
@@ -80,13 +84,14 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
            currentStancePhase.copTrajectory[0];
   }, [currentStancePhase, stancePercentage]);
   
-  // Get the phase to display based on active view
+  // Get the phase to display based on active view - memoized with useCallback
   const getDisplayPhases = useCallback(() => {
     if (footView === 'left') return leftFootPhases;
     if (footView === 'right') return rightFootPhases;
     return stancePhases;
   }, [footView, leftFootPhases, rightFootPhases, stancePhases]);
   
+  // Memoize display phases to prevent recalculation
   const displayPhases = useMemo(() => getDisplayPhases(), [getDisplayPhases]);
 
   // Prepare bar chart data - now with both feet correctly processed
@@ -112,7 +117,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     return [...leftData, ...rightData];
   }, [leftFootPhases, rightFootPhases]);
 
-  // Group bar chart data by condition
+  // Group bar chart data by condition - memoized for performance
   const groupedBarData = useMemo(() => {
     // Group by foot condition
     const grouped = barChartData.reduce((acc, item) => {
@@ -223,7 +228,8 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
           className="space-y-4" 
           style={{ 
             opacity: chartOpacity,
-            transition: 'opacity 0.3s ease-in-out'
+            transition: 'opacity 0.3s ease-in-out',
+            willChange: 'opacity, transform' // Optimize for animations
           }}
         >
           {displayPhases.length > 0 ? (
@@ -306,21 +312,19 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                         
                         <Legend />
                         
-                        {/* Display trajectories based on active view */}
-                        {displayPhases.map((phase, index) => (
+                        {/* Display trajectories based on active view - improved rendering */}
+                        {displayPhases.slice(0, 10).map((phase, index) => (
                           <Scatter 
                             key={`${phase.foot}-${phase.startTime}`}
                             name={`${phase.foot === 'left' ? 'Left' : 'Right'} Foot - ${phase.startTime.toFixed(1)}s`} 
-                            data={phase.copTrajectory.map(point => ({
-                              ...point,
-                              size: phase === currentStancePhase ? 5 : 3
-                            }))} 
+                            data={phase.copTrajectory.filter((_, i) => i % 2 === 0)} // Sample every other point for performance
                             fill={phase.foot === 'left' ? "#8884d8" : "#82ca9d"}
                             fillOpacity={phase === currentStancePhase ? 0.8 : 0.3}
                             stroke={phase === currentStancePhase ? (phase.foot === 'left' ? "#6a5acd" : "#2e8b57") : "none"}
                             strokeWidth={1.5}
                             line={phase === currentStancePhase}
-                            lineType="fitting"
+                            lineType="linear" // Changed from "fitting" for better performance
+                            isAnimationActive={false} // Disable animations for better performance
                           />
                         ))}
                         
@@ -334,6 +338,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                             }]}
                             fill="#ff7300"
                             shape="cross"
+                            isAnimationActive={false}
                           />
                         )}
                       </ScatterChart>
@@ -390,6 +395,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                             dataKey="apPosition" 
                             name="AP Position" 
                             fill="#8884d8"
+                            isAnimationActive={false} // Disable animations for better performance
                           >
                             <ErrorBar dataKey="error" width={4} strokeWidth={1} />
                           </Bar>

@@ -30,8 +30,12 @@ const PressureChart: React.FC<PressureChartProps> = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    // Only trigger loading state when region or mode changes or data changes
-    if (lastRegionRef.current !== region || lastModeRef.current !== mode || !data) {
+    // Optimize the loading state logic
+    const shouldShowLoading = lastRegionRef.current !== region || 
+                             lastModeRef.current !== mode || 
+                             !data;
+    
+    if (shouldShowLoading) {
       setIsLoading(true);
       setChartOpacity(0);
       
@@ -43,23 +47,21 @@ const PressureChart: React.FC<PressureChartProps> = ({
         clearTimeout(timeoutRef.current);
       }
       
-      // Set a timeout to switch to loaded state
+      // Use a shorter timeout for improved responsiveness
       timeoutRef.current = setTimeout(() => {
         setIsLoading(false);
-        // After loading state ends, gradually fade in the chart
-        const fadeTimer = setTimeout(() => {
+        // After loading state ends, fade in the chart
+        requestAnimationFrame(() => {
           setChartOpacity(1);
-        }, 50);
-        
-        return () => clearTimeout(fadeTimer);
-      }, 300);
-      
-      return () => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-        }
-      };
+        });
+      }, 200);
     }
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [data, region, mode]);
   
   // Clean up on unmount
@@ -85,14 +87,14 @@ const PressureChart: React.FC<PressureChartProps> = ({
     );
   }
   
-  // Prevent layout shifts and display issues with appropriate container styling
   return (
     <div 
       className={`relative h-[400px] w-full overflow-hidden ${className || ''}`} 
       style={{ 
         contain: 'size layout',
         opacity: chartOpacity,
-        transition: 'opacity 0.2s ease-in-out'
+        transition: 'opacity 0.2s ease-in-out',
+        willChange: 'opacity' // Optimize for animations
       }}
     >
       <MemoizedEnhancedPressureChart 

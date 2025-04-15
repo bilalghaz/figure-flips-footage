@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   LineChart,
   Line,
@@ -50,17 +50,17 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
     );
   }
   
-  // Get gait events
-  const getGaitEvents = () => {
+  // Get gait events - memoized for performance
+  const { heelStrikes, toeOffs } = useMemo(() => {
     const heelStrikes: {time: number, foot: 'left' | 'right'}[] = [];
     const toeOffs: {time: number, foot: 'left' | 'right'}[] = [];
     
-    // Detect all gait events
-    data.pressureData.forEach((point, index) => {
-      // Skip the first point
-      if (index === 0) return;
-      
-      const prevPoint = data.pressureData[index - 1];
+    // Detect gait events more efficiently with stride
+    const stride = Math.max(1, Math.floor(data.pressureData.length / 1000)); // Sample at most 1000 points
+    
+    for (let i = stride; i < data.pressureData.length; i += stride) {
+      const point = data.pressureData[i];
+      const prevPoint = data.pressureData[i - stride];
       
       // Heel strike detection (threshold crossing: 25 kPa)
       if (point.leftFoot.heel.peak >= 25 && prevPoint.leftFoot.heel.peak < 25) {
@@ -83,19 +83,23 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
       if (rightToePeak >= 20 && prevRightToePeak < 20) {
         toeOffs.push({ time: point.time, foot: 'right' });
       }
-    });
+    }
     
     return { heelStrikes, toeOffs };
-  };
+  }, [data.pressureData]);
   
-  const { heelStrikes, toeOffs } = getGaitEvents();
-  
-  // Get asymmetry areas
-  const getAsymmetryAreas = () => {
+  // Get asymmetry areas - memoized for performance
+  const asymmetryAreas = useMemo(() => {
+    if (!showAsymmetry) return [];
+    
     const areas: {start: number, end: number, value: number}[] = [];
     let currentArea: {start: number, end: number, values: number[]} | null = null;
     
-    data.pressureData.forEach((point, index) => {
+    // Sample data points for better performance
+    const stride = Math.max(1, Math.floor(data.pressureData.length / 500)); // Sample at most 500 points
+    
+    for (let i = 0; i < data.pressureData.length; i += stride) {
+      const point = data.pressureData[i];
       const leftValue = point.leftFoot[region][mode];
       const rightValue = point.rightFoot[region][mode];
       const difference = Math.abs(leftValue - rightValue);
@@ -121,7 +125,7 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
         }
         currentArea = null;
       }
-    });
+    }
     
     // Don't forget the last area if we're still in one
     if (currentArea && currentArea.end - currentArea.start >= 0.1) {
@@ -134,36 +138,59 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
     }
     
     return areas;
-  };
+  }, [showAsymmetry, data.pressureData, region, mode]);
   
-  const asymmetryAreas = showAsymmetry ? getAsymmetryAreas() : [];
-  
-  // Format data for recharts
-  const chartData = data.pressureData.map(point => ({
-    time: point.time,
-    left: point.leftFoot[region][mode],
-    right: point.rightFoot[region][mode],
-    current: point.time <= currentTime
-  }));
-  
-  // Find current data point index
-  const currentIndex = chartData.findIndex(point => point.time > currentTime);
-  const currentPoint = currentIndex > 0 ? chartData[currentIndex - 1] : chartData[0];
+  // Format data for recharts - efficiently handle large datasets
+  const chartData = useMemo(() => {
+    // Sample data points for better performance
+    const maxPoints = 500; // Limit to maximum 500 points for better performance
+    const stride = Math.max(1, Math.floor(data.pressureData.length / maxPoints));
+    
+    const sampledData = [];
+    for (let i = 0; i < data.pressureData.length; i += stride) {
+      const point = data.pressureData[i];
+      sampledData.push({
+        time: point.time,
+        left: point.leftFoot[region][mode],
+        right: point.rightFoot[region][mode],
+        current: point.time <= currentTime
+      });
+    }
+    
+    // Always include the current time point for accurate display
+    const currentIndex = data.pressureData.findIndex(point => point.time > currentTime);
+    if (currentIndex > 0) {
+      const currentPoint = data.pressureData[currentIndex - 1];
+      sampledData.push({
+        time: currentPoint.time,
+        left: currentPoint.leftFoot[region][mode],
+        right: currentPoint.rightFoot[region][mode],
+        current: true
+      });
+    }
+    
+    // Sort to ensure correct order
+    return sampledData.sort((a, b) => a.time - b.time);
+  }, [data.pressureData, region, mode, currentTime]);
 
   // Calculate window for view
-  const timeWindow = 5; // 5 seconds window
-  let startTime = Math.max(0, currentTime - (timeWindow / 2));
-  let endTime = Math.min(data.pressureData[data.pressureData.length - 1].time, startTime + timeWindow);
-  
-  // Adjust if we're near the end
-  if (endTime === data.pressureData[data.pressureData.length - 1].time) {
-    startTime = Math.max(0, endTime - timeWindow);
-  }
-  
-  // Filtered data for windowed view
-  const windowedData = chartTimeWindow === 'window' ? 
-    chartData.filter(point => point.time >= startTime && point.time <= endTime) : 
-    chartData;
+  const { startTime, endTime, windowedData } = useMemo(() => {
+    const timeWindow = 5; // 5 seconds window
+    let startTime = Math.max(0, currentTime - (timeWindow / 2));
+    let endTime = Math.min(data.pressureData[data.pressureData.length - 1].time, startTime + timeWindow);
+    
+    // Adjust if we're near the end
+    if (endTime === data.pressureData[data.pressureData.length - 1].time) {
+      startTime = Math.max(0, endTime - timeWindow);
+    }
+    
+    // Filtered data for windowed view
+    const windowedData = chartTimeWindow === 'window' ? 
+      chartData.filter(point => point.time >= startTime && point.time <= endTime) : 
+      chartData;
+    
+    return { startTime, endTime, windowedData };
+  }, [chartData, chartTimeWindow, currentTime, data.pressureData]);
   
   const getRegionName = (region: string) => {
     switch (region) {
@@ -177,24 +204,30 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
     }
   };
   
-  // Find relevant gait events for the current window
-  const visibleHeelStrikes = heelStrikes.filter(event => 
-    chartTimeWindow === 'full' || (event.time >= startTime && event.time <= endTime)
-  );
+  // Find relevant gait events for the current window - memoized
+  const { visibleHeelStrikes, visibleToeOffs, visibleAsymmetryAreas } = useMemo(() => {
+    const visibleHeelStrikes = heelStrikes.filter(event => 
+      chartTimeWindow === 'full' || (event.time >= startTime && event.time <= endTime)
+    );
+    
+    const visibleToeOffs = toeOffs.filter(event => 
+      chartTimeWindow === 'full' || (event.time >= startTime && event.time <= endTime)
+    );
+    
+    const visibleAsymmetryAreas = asymmetryAreas.filter(area => 
+      chartTimeWindow === 'full' || (area.start <= endTime && area.end >= startTime)
+    );
+    
+    return { visibleHeelStrikes, visibleToeOffs, visibleAsymmetryAreas };
+  }, [heelStrikes, toeOffs, asymmetryAreas, chartTimeWindow, startTime, endTime]);
   
-  const visibleToeOffs = toeOffs.filter(event => 
-    chartTimeWindow === 'full' || (event.time >= startTime && event.time <= endTime)
-  );
-  
-  const visibleAsymmetryAreas = asymmetryAreas.filter(area => 
-    chartTimeWindow === 'full' || (area.start <= endTime && area.end >= startTime)
-  );
-  
-  // Calculate max Y value for the chart
-  const maxValue = Math.max(
-    ...windowedData.map(d => Math.max(d.left, d.right)),
-    mode === 'peak' ? data.maxPeakPressure * 0.5 : data.maxMeanPressure * 0.5
-  ) * 1.1;
+  // Calculate max Y value for the chart - memoized
+  const maxValue = useMemo(() => {
+    return Math.max(
+      ...windowedData.map(d => Math.max(d.left, d.right)),
+      mode === 'peak' ? data.maxPeakPressure * 0.5 : data.maxMeanPressure * 0.5
+    ) * 1.1;
+  }, [windowedData, mode, data.maxPeakPressure, data.maxMeanPressure]);
   
   return (
     <div className="h-[450px] bg-white p-4 rounded-md shadow">
@@ -311,8 +344,8 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
               />
             )}
             
-            {/* Gait event markers */}
-            {showGaitEvents && visibleHeelStrikes.map((event, i) => (
+            {/* Gait event markers - limit number shown for performance */}
+            {showGaitEvents && visibleHeelStrikes.slice(0, 10).map((event, i) => (
               <ReferenceLine 
                 key={`hs-${i}`}
                 x={event.time} 
@@ -327,7 +360,7 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
               />
             ))}
             
-            {showGaitEvents && visibleToeOffs.map((event, i) => (
+            {showGaitEvents && visibleToeOffs.slice(0, 10).map((event, i) => (
               <ReferenceLine 
                 key={`to-${i}`}
                 x={event.time} 
@@ -343,8 +376,8 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
               />
             ))}
             
-            {/* Asymmetry areas */}
-            {showAsymmetry && visibleAsymmetryAreas.map((area, i) => (
+            {/* Asymmetry areas - limit number shown for performance */}
+            {showAsymmetry && visibleAsymmetryAreas.slice(0, 5).map((area, i) => (
               <ReferenceArea 
                 key={`asym-${i}`}
                 x1={area.start} 
@@ -367,7 +400,7 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
               activeDot={{ r: 8 }} 
               strokeWidth={2}
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={false} // Disable animations for better performance
             />
             <Line 
               type="monotone" 
@@ -377,7 +410,7 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
               activeDot={{ r: 8 }}
               strokeWidth={2}
               dot={false}
-              isAnimationActive={false}
+              isAnimationActive={false} // Disable animations for better performance
             />
           </LineChart>
         </ResponsiveContainer>
@@ -385,7 +418,7 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
       
       {/* Gait event summary */}
       {showGaitEvents && (
-        <div className="flex gap-2 mt-2 text-xs">
+        <div className="flex flex-wrap gap-2 mt-2 text-xs">
           <Badge variant="outline" className="bg-blue-100 text-blue-800">
             {visibleHeelStrikes.filter(e => e.foot === 'left').length} Left HS
           </Badge>
@@ -409,4 +442,4 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
   );
 };
 
-export default EnhancedPressureChart;
+export default React.memo(EnhancedPressureChart); // Add memo to prevent unnecessary re-renders
