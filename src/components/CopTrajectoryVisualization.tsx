@@ -277,7 +277,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                             stroke={phase === currentStancePhase ? (phase.foot === 'left' ? "#6a5acd" : "#2e8b57") : "none"}
                             strokeWidth={1.5}
                             line={phase === currentStancePhase}
-                            lineType="monotoneX"
+                            lineType="joint"
                           />
                         ))}
                         
@@ -306,8 +306,8 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                     <ChartContainer 
                       className="w-full h-full"
                       config={{
-                        left: { theme: { light: "#8884d8" } },
-                        right: { theme: { light: "#82ca9d" } }
+                        left: { theme: { light: "#8884d8", dark: "#8884d8" } },
+                        right: { theme: { light: "#82ca9d", dark: "#82ca9d" } }
                       }}
                     >
                       <ResponsiveContainer width="100%" height="100%">
@@ -345,7 +345,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                           <Bar 
                             dataKey="apPosition" 
                             name="AP Position" 
-                            fill={(d) => d.color}
+                            fill={String("#1f77b4")}
                           >
                             <ErrorBar dataKey="error" width={4} strokeWidth={1} />
                           </Bar>
