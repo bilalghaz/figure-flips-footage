@@ -1,4 +1,3 @@
-
 import * as XLSX from 'xlsx';
 
 // Define sensor regions based on the provided specification
@@ -216,7 +215,7 @@ export const processCopForceData = async (file: File): Promise<CopForceDataPoint
   // Finding data rows and headers
   // In this format, data typically starts at row 10 (index 9)
   // Headers are at row 8 (index 7)
-  const headerRow = jsonData[7] as string[];
+  const headerRow = jsonData[7] as any[];
   const dataRows = jsonData.slice(9) as any[][];
   
   console.log('Header row:', headerRow);
@@ -234,7 +233,7 @@ export const processCopForceData = async (file: File): Promise<CopForceDataPoint
   let rightXIndex = -1;
   let rightYIndex = -1;
   
-  // Search for column headers
+  // Search for column headers - more robust detection
   headerRow.forEach((header, index) => {
     if (!header) return;
     
@@ -254,6 +253,21 @@ export const processCopForceData = async (file: File): Promise<CopForceDataPoint
       rightYIndex = index;
     }
   });
+  
+  // Fallback column detection - if any columns were not found, try to guess based on column positions
+  if (leftForceIndex === -1 || leftXIndex === -1 || leftYIndex === -1 || 
+      rightForceIndex === -1 || rightXIndex === -1 || rightYIndex === -1) {
+    
+    console.log('Some columns not found by header name, attempting fallback detection...');
+    
+    // Common FGT file format: time, left_force, left_x, left_y, right_force, right_x, right_y
+    if (leftForceIndex === -1 && headerRow.length > 1) leftForceIndex = 1;
+    if (leftXIndex === -1 && headerRow.length > 2) leftXIndex = 2;
+    if (leftYIndex === -1 && headerRow.length > 3) leftYIndex = 3;
+    if (rightForceIndex === -1 && headerRow.length > 4) rightForceIndex = 4;
+    if (rightXIndex === -1 && headerRow.length > 5) rightXIndex = 5;
+    if (rightYIndex === -1 && headerRow.length > 6) rightYIndex = 6;
+  }
   
   console.log('Column indices:', {
     time: timeColumnIndex,
@@ -276,7 +290,7 @@ export const processCopForceData = async (file: File): Promise<CopForceDataPoint
       rightX: rightXIndex === -1,
       rightY: rightYIndex === -1
     });
-    throw new Error('Could not find all required columns in the FGT file');
+    throw new Error('Could not find all required columns in the FGT file. Please ensure it follows the standard format.');
   }
   
   // Process the data

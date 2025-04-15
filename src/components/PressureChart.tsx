@@ -18,7 +18,7 @@ const PressureChart: React.FC<PressureChartProps> = ({
   mode,
   className
 }) => {
-  // Wrap the component in a fixed-height div to prevent layout shifts
+  // Prevent layout shifts by using a fixed height container
   return (
     <div className={`relative h-[400px] w-full overflow-hidden ${className || ''}`}>
       <EnhancedPressureChart 

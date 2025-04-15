@@ -16,6 +16,8 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
 }) => {
   // Find the current stance phase
   const currentStancePhase = useMemo(() => {
+    if (!stancePhases || stancePhases.length === 0) return null;
+    
     return stancePhases.find(phase => 
       currentTime >= phase.startTime && currentTime <= phase.endTime
     );
@@ -28,6 +30,14 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     const elapsedTime = currentTime - currentStancePhase.startTime;
     return Math.round((elapsedTime / currentStancePhase.duration) * 100);
   }, [currentStancePhase, currentTime]);
+  
+  // Find the current position in the trajectory
+  const currentPosition = useMemo(() => {
+    if (!currentStancePhase || !stancePercentage) return null;
+    
+    return currentStancePhase.copTrajectory.find(p => p.percentage === stancePercentage) || 
+           currentStancePhase.copTrajectory[0];
+  }, [currentStancePhase, stancePercentage]);
   
   return (
     <Card>
@@ -123,15 +133,16 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                       fill="#8884d8"
                       opacity={0.3}
                     />
-                    <Scatter 
-                      name="Current Position" 
-                      data={[currentStancePhase.copTrajectory.find(p => p.percentage === stancePercentage) || 
-                             currentStancePhase.copTrajectory[0]].map(point => ({
-                        ...point,
-                        size: 10
-                      }))}
-                      fill="#ff7300"
-                    />
+                    {currentPosition && (
+                      <Scatter 
+                        name="Current Position" 
+                        data={[{
+                          ...currentPosition,
+                          size: 10
+                        }]}
+                        fill="#ff7300"
+                      />
+                    )}
                   </ScatterChart>
                 </ResponsiveContainer>
               </div>
