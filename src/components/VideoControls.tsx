@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Play, Pause, RotateCcw, StepBack, StepForward, Volume2, VolumeX } from 'lucide-react';
+import { debounce } from 'lodash';
 
 interface VideoControlsProps {
   isPlaying: boolean;
@@ -35,6 +36,16 @@ const VideoControls = ({
   onStepBackward,
   onStepForward
 }: VideoControlsProps) => {
+  const [localTime, setLocalTime] = useState(currentTime);
+  const [isDragging, setIsDragging] = useState(false);
+  
+  // Update local time when currentTime changes (but not during dragging)
+  useEffect(() => {
+    if (!isDragging) {
+      setLocalTime(currentTime);
+    }
+  }, [currentTime, isDragging]);
+  
   // Format time as MM:SS.ms
   const formatTime = (timeInSeconds: number) => {
     const minutes = Math.floor(timeInSeconds / 60);
@@ -46,10 +57,29 @@ const VideoControls = ({
   // Available playback speeds
   const speeds = [0.25, 0.5, 1, 1.5, 2];
 
-  // Handle slider change with debouncing to prevent excessive re-renders
+  // Create a debounced seek function to reduce the number of updates
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedSeek = useCallback(
+    debounce((value: number) => {
+      onSeek(value);
+      setIsDragging(false);
+    }, 50),
+    [onSeek]
+  );
+
+  // Handle slider change
   const handleSliderChange = (value: number[]) => {
-    // Only call onSeek when slider is released or clicked
-    onSeek(value[0]);
+    setLocalTime(value[0]);
+    setIsDragging(true);
+    debouncedSeek(value[0]);
+  };
+  
+  // Handle when user starts dragging slider
+  const handleSliderDragStart = () => {
+    if (isPlaying) {
+      onPause();
+    }
+    setIsDragging(true);
   };
 
   return (
@@ -93,16 +123,22 @@ const VideoControls = ({
         
         <div className="flex-1 mx-2">
           <Slider
-            value={[currentTime]}
+            value={[localTime]}
             min={0}
             max={duration}
             step={0.01}
             onValueChange={handleSliderChange}
+            onValueCommit={value => {
+              onSeek(value[0]);
+              setIsDragging(false);
+            }}
+            onMouseDown={handleSliderDragStart}
+            onTouchStart={handleSliderDragStart}
           />
         </div>
         
         <div className="text-sm font-mono">
-          {formatTime(currentTime)} / {formatTime(duration)}
+          {formatTime(localTime)} / {formatTime(duration)}
         </div>
 
         <Button
