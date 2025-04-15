@@ -388,7 +388,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                           <Bar 
                             dataKey="apPosition" 
                             name="AP Position" 
-                            fill={(data) => data.color || "#1f77b4"}
+                            fill={(data) => data.color}
                           >
                             <ErrorBar dataKey="error" width={4} strokeWidth={1} />
                           </Bar>
