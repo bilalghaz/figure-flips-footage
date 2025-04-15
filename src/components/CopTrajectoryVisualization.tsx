@@ -323,7 +323,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
                             stroke={phase === currentStancePhase ? (phase.foot === 'left' ? "#6a5acd" : "#2e8b57") : "none"}
                             strokeWidth={1.5}
                             line={phase === currentStancePhase}
-                            lineType="linear" // Changed from "fitting" for better performance
+                            lineType="fitting" // Changed from "linear" to "fitting" for TypeScript compatibility
                             isAnimationActive={false} // Disable animations for better performance
                           />
                         ))}
