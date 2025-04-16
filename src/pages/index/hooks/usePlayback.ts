@@ -2,15 +2,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
 
-interface PlaybackState {
-  isPlaying: boolean;
-  currentTime: number;
-  playbackSpeed: number;
-  isMuted: boolean;
-  timeRange: {
-    start: number;
-    end: number | null;
-  };
+interface TimeRange {
+  start: number;
+  end: number | null;
 }
 
 interface UsePlaybackProps {
@@ -23,55 +17,46 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [timeRange, setTimeRange] = useState<{start: number; end: number | null}>({
+  const [timeRange, setTimeRange] = useState<TimeRange>({
     start: 0,
     end: null
   });
   
   const animationRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number | null>(null);
-  const lastUpdateTimeRef = useRef<number>(0);
+  const lastTimestampRef = useRef<number | null>(null);
   
-  const handleTimeChange = useCallback((time: number) => {
-    setCurrentTime(time);
+  // Simple function to update current time
+  const handleTimeChange = useCallback((newTime: number) => {
+    setCurrentTime(newTime);
     if (onTimeChange) {
-      onTimeChange(time);
+      onTimeChange(newTime);
     }
   }, [onTimeChange]);
   
-  // Optimized animation function that limits updates to 60fps
+  // Animation function for playback
   const animate = useCallback((timestamp: number) => {
-    if (!lastTimeRef.current) {
-      lastTimeRef.current = timestamp;
+    if (!lastTimestampRef.current) {
+      lastTimestampRef.current = timestamp;
       animationRef.current = requestAnimationFrame(animate);
       return;
     }
     
-    const deltaTime = (timestamp - lastTimeRef.current) / 1000;
-    lastTimeRef.current = timestamp;
+    const deltaTime = (timestamp - lastTimestampRef.current) / 1000;
+    lastTimestampRef.current = timestamp;
     
-    // Skip frame if less than 16ms have passed since last update (60fps)
-    if (timestamp - lastUpdateTimeRef.current < 16) {
-      animationRef.current = requestAnimationFrame(animate);
-      return;
-    }
-    
-    lastUpdateTimeRef.current = timestamp;
-    
-    if (deltaTime > 0) {
-      const newTime = currentTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
+    if (data) {
+      // Calculate new time
+      const newTime = currentTime + (deltaTime * playbackSpeed);
       
-      if (data) {
-        const maxTime = timeRange.end !== null ? 
-          Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
-          data.pressureData[data.pressureData.length - 1].time;
-          
-        if (newTime >= maxTime) {
-          setIsPlaying(false);
-          handleTimeChange(maxTime);
-        } else {
-          handleTimeChange(newTime);
-        }
+      // Get maximum time
+      const maxTime = timeRange.end !== null ? 
+        Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
+        data.pressureData[data.pressureData.length - 1].time;
+      
+      // Check if playback should stop
+      if (newTime >= maxTime) {
+        setIsPlaying(false);
+        handleTimeChange(maxTime);
       } else {
         handleTimeChange(newTime);
       }
@@ -80,25 +65,27 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     if (isPlaying) {
       animationRef.current = requestAnimationFrame(animate);
     }
-  }, [data, currentTime, isPlaying, playbackSpeed, timeRange.end, handleTimeChange]);
+  }, [currentTime, data, isPlaying, playbackSpeed, timeRange.end, handleTimeChange]);
   
+  // Start/stop animation loop based on isPlaying state
   useEffect(() => {
     if (isPlaying) {
-      lastTimeRef.current = null;
-      lastUpdateTimeRef.current = 0;
+      lastTimestampRef.current = null;
       animationRef.current = requestAnimationFrame(animate);
     } else if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
     
+    // Cleanup function to cancel animation on unmount
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, playbackSpeed, animate]);
+  }, [isPlaying, animate]);
   
+  // Play function
   const handlePlay = useCallback(() => {
     if (!data) return;
     
@@ -106,23 +93,26 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
       Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
       data.pressureData[data.pressureData.length - 1].time;
     
+    // If at the end, start from beginning
     if (currentTime >= maxTime) {
-      handleTimeChange(timeRange.start || 0);
+      handleTimeChange(timeRange.start);
     }
     
     setIsPlaying(true);
-    lastTimeRef.current = null;
   }, [data, currentTime, timeRange, handleTimeChange]);
   
+  // Pause function
   const handlePause = useCallback(() => {
     setIsPlaying(false);
   }, []);
   
+  // Reset function
   const handleReset = useCallback(() => {
     setIsPlaying(false);
-    handleTimeChange(timeRange.start || 0);
+    handleTimeChange(timeRange.start);
   }, [timeRange.start, handleTimeChange]);
   
+  // Seek function
   const handleSeek = useCallback((time: number) => {
     if (isPlaying) {
       setIsPlaying(false);
@@ -130,11 +120,13 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     handleTimeChange(time);
   }, [isPlaying, handleTimeChange]);
   
+  // Step backward function
   const handleStepBackward = useCallback(() => {
-    const newTime = Math.max(timeRange.start || 0, currentTime - 0.1);
+    const newTime = Math.max(timeRange.start, currentTime - 0.1);
     handleTimeChange(newTime);
-  }, [timeRange.start, currentTime, handleTimeChange]);
+  }, [currentTime, timeRange.start, handleTimeChange]);
   
+  // Step forward function
   const handleStepForward = useCallback(() => {
     if (!data) return;
     
@@ -144,32 +136,43 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     
     const newTime = Math.min(maxTime, currentTime + 0.1);
     handleTimeChange(newTime);
-  }, [data, timeRange.end, currentTime, handleTimeChange]);
+  }, [data, currentTime, timeRange.end, handleTimeChange]);
   
+  // Speed change function
   const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
   }, []);
   
+  // Mute toggle function
   const handleMuteToggle = useCallback(() => {
-    setIsMuted(!isMuted);
-  }, [isMuted]);
+    setIsMuted(prev => !prev);
+  }, []);
   
+  // Time range change function
   const handleTimeRangeChange = useCallback((startTime: number, endTime: number) => {
     setTimeRange({
       start: startTime,
       end: endTime
     });
     
-    // Set current time to start of range
+    // Reset to start of new range
     handleTimeChange(startTime);
   }, [handleTimeChange]);
   
-  // Reset currentTime when timeRange changes
+  // Reset time when data changes
   useEffect(() => {
-    if (data) {
-      handleTimeChange(timeRange.start || data.pressureData[0].time);
+    if (data && data.pressureData.length > 0) {
+      const start = data.pressureData[0].time;
+      const end = data.pressureData[data.pressureData.length - 1].time;
+      
+      setTimeRange({
+        start: start,
+        end: end
+      });
+      
+      handleTimeChange(start);
     }
-  }, [data, timeRange.start, handleTimeChange]);
+  }, [data, handleTimeChange]);
   
   return {
     isPlaying,
@@ -177,6 +180,7 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     playbackSpeed,
     isMuted,
     timeRange,
+    setTimeRange,
     handlePlay,
     handlePause,
     handleReset,
@@ -185,7 +189,6 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     handleStepForward,
     handleSpeedChange,
     handleMuteToggle,
-    handleTimeRangeChange,
-    setTimeRange
+    handleTimeRangeChange
   };
 };

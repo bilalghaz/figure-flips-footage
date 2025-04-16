@@ -1,5 +1,5 @@
 
-import React, { memo } from 'react';
+import React from 'react';
 import { VideoTimeDisplay } from './VideoTimeDisplay';
 import { VideoTransportControls } from './VideoTransportControls';
 import { VideoTimeSlider } from './VideoTimeSlider';
@@ -24,13 +24,6 @@ interface VideoControlsContainerProps {
   onTimeRangeChange?: (startTime: number, endTime: number) => void;
 }
 
-// Memoize individual control components for better performance
-const MemoizedTransportControls = memo(VideoTransportControls);
-const MemoizedTimeSlider = memo(VideoTimeSlider);
-const MemoizedTimeDisplay = memo(VideoTimeDisplay);
-const MemoizedVolumeControl = memo(VideoVolumeControl);
-const MemoizedSpeedSelector = memo(VideoSpeedSelector);
-
 const VideoControlsContainer = ({
   isPlaying,
   currentTime,
@@ -50,7 +43,7 @@ const VideoControlsContainer = ({
   return (
     <div className="flex flex-col w-full gap-2 bg-white p-4 rounded-md shadow-md">
       <div className="flex items-center gap-2">
-        <MemoizedTransportControls
+        <VideoTransportControls
           isPlaying={isPlaying}
           onPlay={onPlay}
           onPause={onPause}
@@ -59,7 +52,7 @@ const VideoControlsContainer = ({
           onStepForward={onStepForward}
         />
         
-        <MemoizedTimeSlider
+        <VideoTimeSlider
           currentTime={currentTime}
           duration={duration}
           isPlaying={isPlaying}
@@ -67,17 +60,17 @@ const VideoControlsContainer = ({
           onPause={onPause}
         />
         
-        <MemoizedTimeDisplay
+        <VideoTimeDisplay
           currentTime={currentTime}
           duration={duration}
         />
 
-        <MemoizedVolumeControl
+        <VideoVolumeControl
           isMuted={isMuted}
           onMuteToggle={onMuteToggle}
         />
 
-        <MemoizedSpeedSelector
+        <VideoSpeedSelector
           playbackSpeed={playbackSpeed}
           onSpeedChange={onSpeedChange}
         />
@@ -93,5 +86,4 @@ const VideoControlsContainer = ({
   );
 };
 
-// Export a memoized version of the component to prevent unnecessary re-renders
-export default memo(VideoControlsContainer);
+export default VideoControlsContainer;

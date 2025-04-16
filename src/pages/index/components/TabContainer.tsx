@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProcessedData, PressureDataPoint } from '@/utils/pressureDataProcessor';
 import UserControlPanel from '@/components/UserControlPanel';
@@ -20,6 +20,8 @@ interface TabContainerProps {
   onExport: () => void;
   onReset: () => void;
   onUploadNewData: () => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 }
 
 const TabContainer: React.FC<TabContainerProps> = ({
@@ -32,23 +34,12 @@ const TabContainer: React.FC<TabContainerProps> = ({
   onFilter,
   onExport,
   onReset,
-  onUploadNewData
+  onUploadNewData,
+  activeTab,
+  setActiveTab
 }) => {
-  const [activeTab, setActiveTab] = useState<string>('visualization');
-  const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
-  const [showTabs, setShowTabs] = useState<boolean>(false);
-  
-  // Show tab after initial render to improve initial load time
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowTabs(true);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, []);
-  
   // Memoize the active tab content for better performance
-  const memoizedTabContent = useMemo(() => {
+  const tabContent = useMemo(() => {
     if (!data) return null;
     
     switch (activeTab) {
@@ -65,7 +56,7 @@ const TabContainer: React.FC<TabContainerProps> = ({
         return (
           <AnalysisTab 
             data={data}
-            pressureMode={pressureMode}
+            pressureMode="peak"
           />
         );
       case 'gait-events':
@@ -90,9 +81,9 @@ const TabContainer: React.FC<TabContainerProps> = ({
       default:
         return null;
     }
-  }, [activeTab, data, currentTime, cachedDataPoint, getCurrentDataPoint, datasets, pressureMode, onUploadNewData]);
+  }, [activeTab, data, currentTime, cachedDataPoint, getCurrentDataPoint, datasets, onUploadNewData]);
   
-  if (!showTabs || !data) return null;
+  if (!data) return null;
   
   return (
     <Tabs 
@@ -119,9 +110,9 @@ const TabContainer: React.FC<TabContainerProps> = ({
         />
       </div>
       
-      {/* Only render the active tab content for better performance */}
+      {/* Only render the active tab content */}
       <TabsContent value={activeTab} className="focus:outline-none mt-0">
-        {memoizedTabContent}
+        {tabContent}
       </TabsContent>
     </Tabs>
   );

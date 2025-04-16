@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
 
 interface VideoTimeSliderProps {
@@ -19,7 +19,6 @@ export const VideoTimeSlider = ({
 }: VideoTimeSliderProps) => {
   const [localTime, setLocalTime] = useState(currentTime);
   const [isDragging, setIsDragging] = useState(false);
-  const sliderRef = useRef<HTMLDivElement>(null);
   
   // Update local time when currentTime changes (but not while dragging)
   useEffect(() => {
@@ -51,11 +50,11 @@ export const VideoTimeSlider = ({
   };
 
   return (
-    <div className="flex-1 mx-2" ref={sliderRef}>
+    <div className="flex-1 mx-2">
       <Slider
         value={[localTime]}
         min={0}
-        max={duration}
+        max={duration || 100}
         step={0.01}
         onValueChange={handleSliderChange}
         onValueCommit={handleSliderDragEnd}

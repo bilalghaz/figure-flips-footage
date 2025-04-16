@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { usePlayback } from './index/hooks/usePlayback';
 import { useDatasetManager } from './index/hooks/useDatasetManager';
@@ -73,8 +74,8 @@ const Index = () => {
   };
   
   // Set time range when data changes
-  React.useEffect(() => {
-    if (data) {
+  useEffect(() => {
+    if (data && data.pressureData.length > 0) {
       setTimeRange({
         start: data.pressureData[0].time,
         end: data.pressureData[data.pressureData.length - 1].time
@@ -83,7 +84,7 @@ const Index = () => {
   }, [data, setTimeRange]);
   
   // Tracking renders for performance optimization
-  React.useEffect(() => {
+  useEffect(() => {
     renderCount.current += 1;
     console.log(`Index component render count: ${renderCount.current}`);
   });
@@ -144,6 +145,8 @@ const Index = () => {
               onExport={handleExportData}
               onReset={handleResetData}
               onUploadNewData={resetAllData}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
             />
           </div>
         )}
