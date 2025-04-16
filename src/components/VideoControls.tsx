@@ -26,6 +26,7 @@ interface VideoControlsProps {
   onMuteToggle: () => void;
   onStepBackward: () => void;
   onStepForward: () => void;
+  onTimeRangeChange?: (startTime: number, endTime: number) => void;
 }
 
 const VideoControls: React.FC<VideoControlsProps> = ({
@@ -41,7 +42,8 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   onSpeedChange,
   onMuteToggle,
   onStepBackward,
-  onStepForward
+  onStepForward,
+  onTimeRangeChange
 }) => {
   // Format time as MM:SS.ms
   const formatTime = (time: number) => {

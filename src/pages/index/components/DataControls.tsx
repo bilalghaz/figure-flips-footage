@@ -85,12 +85,6 @@ const DataControls: React.FC<DataControlsProps> = ({
               Range: {timeRange.start.toFixed(1)}s - {timeRange.end?.toFixed(1) || 'End'}s
             </Badge>
           )}
-          
-          {data?.copForceData && (
-            <Badge variant="outline" className="bg-green-50 text-green-800">
-              COP Data Available
-            </Badge>
-          )}
         </div>
         
         <div className="flex items-center space-x-2">

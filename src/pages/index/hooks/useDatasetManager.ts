@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from 'react';
-import { ProcessedData, processCopForceData, mergeData } from '@/utils/pressureDataProcessor';
+import { ProcessedData } from '@/utils/pressureDataProcessor';
 import { useToast } from "@/hooks/use-toast";
 
 export const useDatasetManager = () => {
@@ -10,76 +10,21 @@ export const useDatasetManager = () => {
   const [data, setData] = useState<ProcessedData | null>(null);
   const [datasets, setDatasets] = useState<ProcessedData[]>([]);
   const [activeDatasetIndex, setActiveDatasetIndex] = useState<number>(0);
-  const [copFile, setCopFile] = useState<File | null>(null);
   
-  const handleDataProcessed = useCallback(async (processedData: ProcessedData) => {
-    if (copFile) {
-      try {
-        setIsProcessing(true);
-        
-        const copForceData = await processCopForceData(copFile);
-        
-        const mergedData = mergeData(processedData, copForceData);
-        
-        setDatasets(prev => [...prev, mergedData]);
-        setActiveDatasetIndex(datasets.length);
-        
-        setData(mergedData);
-        setOriginalData(JSON.parse(JSON.stringify(mergedData)));
-        
-        toast({
-          title: "Data loaded successfully",
-          description: `Processed ${mergedData.pressureData.length} data points with COP data`,
-          duration: 3000,
-        });
-        
-        setCopFile(null);
-      } catch (error) {
-        console.error('Error processing COP data:', error);
-        toast({
-          title: "Error processing COP data",
-          description: String(error),
-          variant: "destructive",
-          duration: 5000,
-        });
-        
-        setDatasets(prev => [...prev, processedData]);
-        setActiveDatasetIndex(datasets.length);
-        setData(processedData);
-        setOriginalData(JSON.parse(JSON.stringify(processedData)));
-      } finally {
-        setIsProcessing(false);
-      }
-    } else {
-      setDatasets(prev => [...prev, processedData]);
-      setActiveDatasetIndex(datasets.length);
-      setData(processedData);
-      setOriginalData(JSON.parse(JSON.stringify(processedData)));
-      
-      toast({
-        title: "Data loaded successfully",
-        description: `Processed ${processedData.pressureData.length} data points`,
-        duration: 3000,
-      });
-    }
-  }, [copFile, datasets.length, toast]);
-  
-  const handleCopFileSelected = useCallback((file: File) => {
-    if (file.name.toLowerCase().includes('fgt') || file.name.toLowerCase().includes('cop')) {
-      setCopFile(file);
-      toast({
-        title: "COP/Force file selected",
-        description: `File "${file.name}" will be processed with the next pressure data file`,
-        duration: 3000,
-      });
-    } else {
-      toast({
-        title: "Invalid COP/Force file",
-        description: "The file doesn't appear to be a FGT/COP data file. The filename should contain 'FGT' or 'COP'.",
-        variant: "destructive",
-        duration: 5000,
-      });
-    }
+  const handleDataProcessed = useCallback((processedData: ProcessedData) => {
+    setDatasets(prev => [...prev, processedData]);
+    setActiveDatasetIndex(prev => prev + 1);
+    
+    setData(processedData);
+    setOriginalData(JSON.parse(JSON.stringify(processedData)));
+    
+    toast({
+      title: "Data loaded successfully",
+      description: `Processed ${processedData.pressureData.length} data points`,
+      duration: 3000,
+    });
+    
+    setIsProcessing(false);
   }, [toast]);
   
   const handleFilterApplied = useCallback((filteredData: ProcessedData) => {
@@ -151,7 +96,6 @@ export const useDatasetManager = () => {
     setDatasets([]);
     setData(null);
     setOriginalData(null);
-    setCopFile(null);
   }, []);
   
   return {
@@ -160,9 +104,7 @@ export const useDatasetManager = () => {
     activeDatasetIndex,
     isProcessing,
     setIsProcessing,
-    copFile,
     handleDataProcessed,
-    handleCopFileSelected,
     handleFilterApplied,
     handleResetData,
     handleDatasetChange,
