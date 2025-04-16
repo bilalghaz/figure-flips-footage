@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProcessedData, PressureDataPoint } from '@/utils/pressureDataProcessor';
 import UserControlPanel from '@/components/UserControlPanel';
@@ -38,10 +38,9 @@ const TabContainer: React.FC<TabContainerProps> = ({
   activeTab,
   setActiveTab
 }) => {
-  // Memoize the active tab content for better performance
-  const tabContent = useMemo(() => {
-    if (!data) return null;
-    
+  if (!data) return null;
+  
+  const renderTabContent = () => {
     switch (activeTab) {
       case 'visualization':
         return (
@@ -81,9 +80,7 @@ const TabContainer: React.FC<TabContainerProps> = ({
       default:
         return null;
     }
-  }, [activeTab, data, currentTime, cachedDataPoint, getCurrentDataPoint, datasets, onUploadNewData]);
-  
-  if (!data) return null;
+  };
   
   return (
     <Tabs 
@@ -110,9 +107,8 @@ const TabContainer: React.FC<TabContainerProps> = ({
         />
       </div>
       
-      {/* Only render the active tab content */}
       <TabsContent value={activeTab} className="focus:outline-none mt-0">
-        {tabContent}
+        {renderTabContent()}
       </TabsContent>
     </Tabs>
   );

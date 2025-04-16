@@ -20,32 +20,29 @@ export const VideoTimeSlider = ({
   const [localTime, setLocalTime] = useState(currentTime);
   const [isDragging, setIsDragging] = useState(false);
   
-  // Update local time when currentTime changes (but not while dragging)
+  // Simple effect to update local time when currentTime changes (but not while dragging)
   useEffect(() => {
     if (!isDragging) {
       setLocalTime(currentTime);
     }
   }, [currentTime, isDragging]);
   
-  // Handle slider change
-  const handleSliderChange = (value: number[]) => {
-    const newTime = value[0];
-    setLocalTime(newTime);
-  };
-  
-  // Handle when user starts dragging slider
+  // Handle slider drag start
   const handleSliderDragStart = () => {
     setIsDragging(true);
-    
     if (isPlaying) {
       onPause();
     }
   };
   
-  // Handle when user stops dragging slider
+  // Handle slider value change
+  const handleSliderChange = (value: number[]) => {
+    setLocalTime(value[0]);
+  };
+  
+  // Handle slider drag end
   const handleSliderDragEnd = (value: number[]) => {
-    const newTime = value[0];
-    onSeek(newTime);
+    onSeek(value[0]);
     setIsDragging(false);
   };
 

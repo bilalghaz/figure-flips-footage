@@ -25,7 +25,7 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
   const animationRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
   
-  // Simple function to update current time
+  // Update current time (with optional callback)
   const handleTimeChange = useCallback((newTime: number) => {
     setCurrentTime(newTime);
     if (onTimeChange) {
@@ -65,7 +65,7 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     if (isPlaying) {
       animationRef.current = requestAnimationFrame(animate);
     }
-  }, [currentTime, data, isPlaying, playbackSpeed, timeRange.end, handleTimeChange]);
+  }, [currentTime, data, isPlaying, playbackSpeed, timeRange, handleTimeChange]);
   
   // Start/stop animation loop based on isPlaying state
   useEffect(() => {
@@ -77,7 +77,6 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
       animationRef.current = null;
     }
     
-    // Cleanup function to cancel animation on unmount
     return () => {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
@@ -101,18 +100,14 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     setIsPlaying(true);
   }, [data, currentTime, timeRange, handleTimeChange]);
   
-  // Pause function
-  const handlePause = useCallback(() => {
-    setIsPlaying(false);
-  }, []);
+  // Core playback functions
+  const handlePause = useCallback(() => setIsPlaying(false), []);
   
-  // Reset function
   const handleReset = useCallback(() => {
     setIsPlaying(false);
     handleTimeChange(timeRange.start);
   }, [timeRange.start, handleTimeChange]);
   
-  // Seek function
   const handleSeek = useCallback((time: number) => {
     if (isPlaying) {
       setIsPlaying(false);
@@ -120,13 +115,11 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     handleTimeChange(time);
   }, [isPlaying, handleTimeChange]);
   
-  // Step backward function
   const handleStepBackward = useCallback(() => {
     const newTime = Math.max(timeRange.start, currentTime - 0.1);
     handleTimeChange(newTime);
   }, [currentTime, timeRange.start, handleTimeChange]);
   
-  // Step forward function
   const handleStepForward = useCallback(() => {
     if (!data) return;
     
@@ -138,17 +131,14 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     handleTimeChange(newTime);
   }, [data, currentTime, timeRange.end, handleTimeChange]);
   
-  // Speed change function
   const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
   }, []);
   
-  // Mute toggle function
   const handleMuteToggle = useCallback(() => {
     setIsMuted(prev => !prev);
   }, []);
   
-  // Time range change function
   const handleTimeRangeChange = useCallback((startTime: number, endTime: number) => {
     setTimeRange({
       start: startTime,
@@ -159,7 +149,7 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     handleTimeChange(startTime);
   }, [handleTimeChange]);
   
-  // Reset time when data changes
+  // Init time range when data changes
   useEffect(() => {
     if (data && data.pressureData.length > 0) {
       const start = data.pressureData[0].time;

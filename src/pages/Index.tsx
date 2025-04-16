@@ -11,7 +11,6 @@ import TabContainer from './index/components/TabContainer';
 
 const Index = () => {
   const { toast } = useToast();
-  const renderCount = useRef(0);
   const [activeTab, setActiveTab] = useState<string>('visualization');
   
   // Dataset management
@@ -61,13 +60,33 @@ const Index = () => {
   
   // Data export
   const handleExportData = () => {
-    const currentDataPoint = cachedDataPoint || getCurrentDataPoint();
-    const filename = exportDataPoint(currentDataPoint);
-    
-    if (filename) {
+    try {
+      const currentDataPoint = cachedDataPoint || getCurrentDataPoint();
+      if (!currentDataPoint) {
+        toast({
+          title: "Export failed",
+          description: "No data available to export",
+          variant: "destructive",
+          duration: 3000,
+        });
+        return;
+      }
+      
+      const filename = exportDataPoint(currentDataPoint);
+      
+      if (filename) {
+        toast({
+          title: "Export complete",
+          description: `Data exported to ${filename}`,
+          duration: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("Export error:", error);
       toast({
-        title: "Export complete",
-        description: `Data exported to ${filename}`,
+        title: "Export failed",
+        description: "An error occurred during export",
+        variant: "destructive",
         duration: 3000,
       });
     }
@@ -82,12 +101,6 @@ const Index = () => {
       });
     }
   }, [data, setTimeRange]);
-  
-  // Tracking renders for performance optimization
-  useEffect(() => {
-    renderCount.current += 1;
-    console.log(`Index component render count: ${renderCount.current}`);
-  });
   
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 overflow-x-hidden">
