@@ -30,6 +30,7 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
   
   const animationRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
+  const lastUpdateTimeRef = useRef<number>(0);
   
   const handleTimeChange = useCallback((time: number) => {
     setCurrentTime(time);
@@ -38,18 +39,27 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     }
   }, [onTimeChange]);
   
+  // Optimized animation function that limits updates to 60fps
   const animate = useCallback((timestamp: number) => {
     if (!lastTimeRef.current) {
       lastTimeRef.current = timestamp;
+      animationRef.current = requestAnimationFrame(animate);
+      return;
     }
     
     const deltaTime = (timestamp - lastTimeRef.current) / 1000;
     lastTimeRef.current = timestamp;
     
-    if (deltaTime > 0.05) {
-      // Calculate new time first, then pass the calculated value
-      const prevTime = currentTime;
-      const newTime = prevTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
+    // Skip frame if less than 16ms have passed since last update (60fps)
+    if (timestamp - lastUpdateTimeRef.current < 16) {
+      animationRef.current = requestAnimationFrame(animate);
+      return;
+    }
+    
+    lastUpdateTimeRef.current = timestamp;
+    
+    if (deltaTime > 0) {
+      const newTime = currentTime + (Math.min(deltaTime, 0.1) * playbackSpeed);
       
       if (data) {
         const maxTime = timeRange.end !== null ? 
@@ -74,6 +84,8 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
   
   useEffect(() => {
     if (isPlaying) {
+      lastTimeRef.current = null;
+      lastUpdateTimeRef.current = 0;
       animationRef.current = requestAnimationFrame(animate);
     } else if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
@@ -119,7 +131,6 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
   }, [isPlaying, handleTimeChange]);
   
   const handleStepBackward = useCallback(() => {
-    // Calculate the new time value first, then pass it
     const newTime = Math.max(timeRange.start || 0, currentTime - 0.1);
     handleTimeChange(newTime);
   }, [timeRange.start, currentTime, handleTimeChange]);
@@ -131,7 +142,6 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
       Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
       data.pressureData[data.pressureData.length - 1].time;
     
-    // Calculate the new time value first, then pass it
     const newTime = Math.min(maxTime, currentTime + 0.1);
     handleTimeChange(newTime);
   }, [data, timeRange.end, currentTime, handleTimeChange]);
