@@ -84,18 +84,18 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
           viewBox="0 0 100 180" 
           className={`w-full h-full ${side === 'right' ? 'scale-x-[-1]' : ''}`}
         >
-          {/* Foot outline */}
+          {/* Foot outline - updated to match Pedar layout */}
           <path 
-            d="M30,10 C45,10 65,15 75,25 C85,35 90,50 90,70 C90,100 85,130 75,150 C65,170 55,175 50,175 C45,175 35,170 25,150 C15,130 10,100 10,70 C10,50 15,35 25,25 C35,15 50,10 30,10 Z" 
+            d="M25,10 C35,10 65,15 75,25 C83,35 85,60 83,85 C80,120 75,140 65,155 C55,170 45,175 40,175 C35,175 25,170 15,155 C5,140 0,120 0,85 C0,60 5,35 15,25 C25,15 45,10 25,10 Z" 
             fill="none" 
             stroke="currentColor" 
             strokeWidth="1.5"
             className="text-muted-foreground"
           />
           
-          {/* Heel region */}
+          {/* Heel region (1-26) */}
           <path 
-            d="M30,150 C40,165 60,165 70,150 C75,130 75,110 75,110 L25,110 C25,110 25,130 30,150 Z" 
+            d="M15,155 C25,170 55,170 65,155 C70,140 72,125 72,115 L8,115 C8,125 10,140 15,155 Z" 
             fill={regionColors.heel}
             stroke="rgba(0,0,0,0.2)" 
             strokeWidth="0.5"
@@ -103,9 +103,9 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
             <title>{`Heel: ${formatPressure(footData.heel[mode])} kPa`}</title>
           </path>
           
-          {/* Lateral midfoot */}
+          {/* Lateral midfoot (27-30, 35-38, 43-46, 51-53) */}
           <path 
-            d="M25,110 L25,65 L40,65 L45,110 Z" 
+            d="M8,115 L8,75 L25,75 L30,115 Z" 
             fill={regionColors.lateralMidfoot}
             stroke="rgba(0,0,0,0.2)" 
             strokeWidth="0.5"
@@ -113,9 +113,9 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
             <title>{`Lateral Midfoot: ${formatPressure(footData.lateralMidfoot[mode])} kPa`}</title>
           </path>
           
-          {/* Medial midfoot */}
+          {/* Medial midfoot (31-34, 39-42, 47-50, 54-57) */}
           <path 
-            d="M45,110 L40,65 L75,65 L75,110 Z" 
+            d="M30,115 L25,75 L72,75 L72,115 Z" 
             fill={regionColors.medialMidfoot}
             stroke="rgba(0,0,0,0.2)" 
             strokeWidth="0.5"
@@ -123,9 +123,9 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
             <title>{`Medial Midfoot: ${formatPressure(footData.medialMidfoot[mode])} kPa`}</title>
           </path>
           
-          {/* Forefoot */}
+          {/* Forefoot (58-82) */}
           <path 
-            d="M25,65 L25,40 C25,40 35,30 50,30 C65,30 75,40 75,40 L75,65 L40,65 Z" 
+            d="M8,75 L8,40 C15,28 30,20 50,20 C70,20 83,30 83,40 L83,75 L25,75 Z" 
             fill={regionColors.forefoot}
             stroke="rgba(0,0,0,0.2)" 
             strokeWidth="0.5"
@@ -133,9 +133,9 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
             <title>{`Forefoot: ${formatPressure(footData.forefoot[mode])} kPa`}</title>
           </path>
           
-          {/* Toes */}
+          {/* Toes (86-90, 93-96, 98-99) */}
           <path 
-            d="M33,40 C33,40 35,25 50,25 C65,25 67,40 67,40 C67,40 60,30 50,30 C40,30 33,40 33,40 Z" 
+            d="M30,40 C30,30 50,15 70,30 C70,35 60,25 50,23 C35,20 30,40 30,40 Z" 
             fill={regionColors.toes}
             stroke="rgba(0,0,0,0.2)" 
             strokeWidth="0.5"
@@ -143,27 +143,25 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
             <title>{`Toes: ${formatPressure(footData.toes[mode])} kPa`}</title>
           </path>
           
-          {/* Hallux (big toe) */}
-          <circle 
-            cx="37" 
-            cy="30" 
-            r="8" 
+          {/* Hallux/big toe (83-85, 91-92, 97) */}
+          <path 
+            d="M30,35 C25,25 20,20 15,22 C10,25 15,30 20,32 C25,34 30,35 30,35 Z" 
             fill={regionColors.hallux}
             stroke="rgba(0,0,0,0.2)" 
             strokeWidth="0.5"
           >
             <title>{`Hallux: ${formatPressure(footData.hallux[mode])} kPa`}</title>
-          </circle>
+          </path>
           
           {/* Labels - only show on left foot to avoid mirrored text */}
           {side === 'left' && (
             <>
-              <text x="50" y="140" fontSize="8" textAnchor="middle" fill="white">Heel</text>
-              <text x="35" y="90" fontSize="6" textAnchor="middle" fill="white">Lat Mid</text>
-              <text x="60" y="90" fontSize="6" textAnchor="middle" fill="white">Med Mid</text>
-              <text x="50" y="50" fontSize="8" textAnchor="middle" fill="white">Forefoot</text>
-              <text x="50" y="30" fontSize="6" textAnchor="middle" fill="white">Toes</text>
-              <text x="37" y="30" fontSize="6" textAnchor="middle" fill="white">H</text>
+              <text x="40" y="140" fontSize="8" textAnchor="middle" fill="white">Heel</text>
+              <text x="18" y="95" fontSize="6" textAnchor="middle" fill="white">Lat Mid</text>
+              <text x="50" y="95" fontSize="6" textAnchor="middle" fill="white">Med Mid</text>
+              <text x="45" y="50" fontSize="8" textAnchor="middle" fill="white">Forefoot</text>
+              <text x="50" y="25" fontSize="6" textAnchor="middle" fill="white">Toes</text>
+              <text x="20" y="28" fontSize="6" textAnchor="middle" fill="white">Hallux</text>
             </>
           )}
         </svg>
