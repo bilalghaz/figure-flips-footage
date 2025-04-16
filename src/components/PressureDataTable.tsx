@@ -65,8 +65,17 @@ const PressureDataTable: React.FC<PressureDataTableProps> = ({ dataPoint, mode }
         </TableHeader>
         <TableBody>
           {regions.map((region) => {
-            const leftValue = dataPoint.leftFoot[region][mode];
-            const rightValue = dataPoint.rightFoot[region][mode];
+            // Add safety checks to handle missing regions in the data
+            const leftFootRegion = dataPoint.leftFoot[region];
+            const rightFootRegion = dataPoint.rightFoot[region];
+            
+            // Skip this region if it doesn't exist in either foot
+            if (!leftFootRegion || !rightFootRegion) {
+              return null;
+            }
+            
+            const leftValue = leftFootRegion[mode] || 0;
+            const rightValue = rightFootRegion[mode] || 0;
             const difference = leftValue - rightValue;
             const absPercentDiff = Math.abs(difference) / Math.max(leftValue, rightValue, 0.001) * 100;
             const asymmetry = getAsymmetryLevel(absPercentDiff);

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { PressureDataPoint, ProcessedData } from '@/utils/pressureDataProcessor';
 import PressureHeatMap from '@/components/PressureHeatMap';
 import PressureChart from '@/components/PressureChart';
@@ -20,10 +20,29 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
   currentDataPoint,
   getCurrentDataPoint
 }) => {
-  const [currentRegion, setCurrentRegion] = React.useState('heel');
-  const [pressureMode, setPressureMode] = React.useState<'peak' | 'mean'>('peak');
+  const [currentRegion, setCurrentRegion] = useState('heel');
+  const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
   
   if (!data) return null;
+  
+  // Make sure the currentRegion is one that exists in the data
+  const validateCurrentRegion = (region: string) => {
+    const dataPoint = currentDataPoint || getCurrentDataPoint();
+    if (!dataPoint) return 'heel';
+    
+    if (dataPoint.leftFoot[region] && dataPoint.rightFoot[region]) {
+      return region;
+    }
+    
+    // If the selected region doesn't exist, default to heel or another available region
+    return 'heel';
+  };
+  
+  // Ensure the currentRegion is valid
+  const validatedRegion = validateCurrentRegion(currentRegion);
+  if (validatedRegion !== currentRegion) {
+    setCurrentRegion(validatedRegion);
+  }
   
   return (
     <div className="space-y-6">
@@ -58,9 +77,11 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="heel">Heel</SelectItem>
-                  <SelectItem value="midfoot">Midfoot</SelectItem>
+                  <SelectItem value="medialMidfoot">Medial Midfoot</SelectItem>
+                  <SelectItem value="lateralMidfoot">Lateral Midfoot</SelectItem>
                   <SelectItem value="forefoot">Forefoot</SelectItem>
                   <SelectItem value="toes">Toes</SelectItem>
+                  <SelectItem value="hallux">Hallux</SelectItem>
                 </SelectContent>
               </Select>
             </div>
