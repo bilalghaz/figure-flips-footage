@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import {
   LineChart,
@@ -172,7 +171,7 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
     // Sort to ensure correct order
     return sampledData.sort((a, b) => a.time - b.time);
   }, [data.pressureData, region, mode, currentTime]);
-
+  
   // Calculate window for view
   const { startTime, endTime, windowedData } = useMemo(() => {
     const timeWindow = 5; // 5 seconds window
@@ -192,14 +191,13 @@ const EnhancedPressureChart: React.FC<EnhancedPressureChartProps> = ({
     return { startTime, endTime, windowedData };
   }, [chartData, chartTimeWindow, currentTime, data.pressureData]);
   
+  // In the existing code, update the getRegionName function to match our new regions:
   const getRegionName = (region: string) => {
     switch (region) {
       case 'heel': return 'Heel';
-      case 'medialMidfoot': return 'Medial Midfoot';
-      case 'lateralMidfoot': return 'Lateral Midfoot';
+      case 'midfoot': return 'Midfoot';
       case 'forefoot': return 'Forefoot';
       case 'toes': return 'Toes';
-      case 'hallux': return 'Hallux';
       default: return region;
     }
   };

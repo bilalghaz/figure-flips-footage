@@ -1,13 +1,12 @@
+
 import * as XLSX from 'xlsx';
 
-// Define sensor regions based on the provided specification
+// Define sensor regions based on the Pedar insole layout image
 const REGIONS = {
-  heel: Array.from({ length: 26 }, (_, i) => i + 1), // 1-26 for heel (updated based on image)
-  medialMidfoot: [31, 32, 33, 34, 39, 40, 41, 42, 47, 48, 49, 50, 54, 55, 56, 57], // Updated based on image
-  lateralMidfoot: [27, 28, 29, 30, 35, 36, 37, 38, 43, 44, 45, 46, 51, 52, 53], // Updated based on image
-  forefoot: [58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82], // 58-82
-  toes: [86, 87, 88, 89, 90, 93, 94, 95, 96, 98, 99], // Adjusted based on image
-  hallux: [83, 84, 85, 91, 92, 97] // Adjusted big toe (hallux) region
+  heel: Array.from({ length: 26 }, (_, i) => i + 1), // 1-26 for heel (orange region)
+  midfoot: Array.from({ length: 28 }, (_, i) => i + 27), // 27-54 for midfoot (light blue region)
+  forefoot: Array.from({ length: 28 }, (_, i) => i + 55), // 55-82 for forefoot (green region)
+  toes: Array.from({ length: 17 }, (_, i) => i + 83) // 83-99 for toes (purple region)
 };
 
 export interface PressureSensorData {

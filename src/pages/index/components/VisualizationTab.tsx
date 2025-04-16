@@ -58,11 +58,9 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="heel">Heel</SelectItem>
-                  <SelectItem value="medialMidfoot">Medial Midfoot</SelectItem>
-                  <SelectItem value="lateralMidfoot">Lateral Midfoot</SelectItem>
+                  <SelectItem value="midfoot">Midfoot</SelectItem>
                   <SelectItem value="forefoot">Forefoot</SelectItem>
                   <SelectItem value="toes">Toes</SelectItem>
-                  <SelectItem value="hallux">Hallux</SelectItem>
                 </SelectContent>
               </Select>
             </div>

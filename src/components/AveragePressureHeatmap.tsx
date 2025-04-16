@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
 import { 
@@ -33,16 +32,15 @@ const AveragePressureHeatmap: React.FC<AveragePressureHeatmapProps> = ({
     );
   }
   
-  const regions = ['heel', 'medialMidfoot', 'lateralMidfoot', 'forefoot', 'toes', 'hallux'];
+  // Update the regions array to match our new definitions:
+  const regions = ['heel', 'midfoot', 'forefoot', 'toes'];
   
   const getRegionName = (region: string) => {
     switch (region) {
       case 'heel': return 'Heel';
-      case 'medialMidfoot': return 'Medial Midfoot';
-      case 'lateralMidfoot': return 'Lateral Midfoot';
+      case 'midfoot': return 'Midfoot';
       case 'forefoot': return 'Forefoot';
       case 'toes': return 'Toes';
-      case 'hallux': return 'Hallux';
       default: return region;
     }
   };
