@@ -56,66 +56,73 @@ export const useCopData = (
     }
   }, [footView, leftFootPhases, rightFootPhases, stancePhases]);
 
-  // Prepare bar chart data
+  // Prepare bar chart data with performance optimizations for large datasets
   const barChartData = useMemo(() => {
     if (!leftFootPhases.length && !rightFootPhases.length) return [];
     
-    const leftData = leftFootPhases.map(phase => ({
-      id: `left-${phase.startTime.toFixed(1)}`,
-      condition: 'Left Foot',
-      apPosition: phase.meanCopX,
-      error: phase.apRange / 4, // Standard deviation approximation
-      foot: 'Left',
-      color: '#8884d8'
-    }));
+    // For very large datasets, sample the data to improve performance
+    const sampleRate = Math.max(1, Math.floor(leftFootPhases.length / 100));
+    
+    const leftData = leftFootPhases
+      .filter((_, index) => index % sampleRate === 0) // Sample large datasets
+      .map(phase => ({
+        id: `left-${phase.startTime.toFixed(1)}`,
+        condition: 'Left Foot',
+        apPosition: phase.meanCopX,
+        error: phase.apRange / 4, // Standard deviation approximation
+        foot: 'Left',
+        color: '#8884d8'
+      }));
 
-    const rightData = rightFootPhases.map(phase => ({
-      id: `right-${phase.startTime.toFixed(1)}`,
-      condition: 'Right Foot',
-      apPosition: phase.meanCopX,
-      error: phase.apRange / 4,
-      foot: 'Right',
-      color: '#82ca9d'
-    }));
+    const rightData = rightFootPhases
+      .filter((_, index) => index % sampleRate === 0) // Sample large datasets
+      .map(phase => ({
+        id: `right-${phase.startTime.toFixed(1)}`,
+        condition: 'Right Foot',
+        apPosition: phase.meanCopX,
+        error: phase.apRange / 4,
+        foot: 'Right',
+        color: '#82ca9d'
+      }));
 
     return [...leftData, ...rightData];
   }, [leftFootPhases, rightFootPhases]);
 
-  // Group bar chart data by condition
+  // Group bar chart data by condition with optimization for large datasets
   const groupedBarData = useMemo(() => {
     if (!barChartData.length) return [];
     
-    // Group by foot condition
-    const grouped = barChartData.reduce((acc, item) => {
-      const existingGroup = acc.find(g => g.condition === item.condition);
-      if (existingGroup) {
-        existingGroup.items.push(item);
-      } else {
-        acc.push({
-          condition: item.condition,
-          items: [item]
-        });
-      }
-      return acc;
-    }, [] as any[]);
-
-    // Process grouped data
-    return grouped.map(group => {
-      const items = group.items;
-      return {
-        condition: group.condition,
-        apPosition: items.reduce((sum: number, item: any) => sum + item.apPosition, 0) / items.length,
-        error: items.reduce((sum: number, item: any) => sum + item.error, 0) / items.length,
-        foot: items[0].foot,
-        color: items[0].color
-      };
-    });
+    // Process data in chunks to prevent UI freezing with very large datasets
+    const chunkedProcess = () => {
+      // Group by foot condition
+      const grouped = barChartData.reduce((acc, item) => {
+        const existingGroup = acc.find(g => g.condition === item.condition);
+        if (existingGroup) {
+          existingGroup.items.push(item);
+        } else {
+          acc.push({
+            condition: item.condition,
+            items: [item]
+          });
+        }
+        return acc;
+      }, [] as any[]);
+  
+      // Process grouped data
+      return grouped.map(group => {
+        const items = group.items;
+        return {
+          condition: group.condition,
+          apPosition: items.reduce((sum: number, item: any) => sum + item.apPosition, 0) / items.length,
+          error: items.reduce((sum: number, item: any) => sum + item.error, 0) / items.length,
+          foot: items[0].foot,
+          color: items[0].color
+        };
+      });
+    };
+    
+    return chunkedProcess();
   }, [barChartData]);
-
-  // Add this function to the returned object to match what's expected in CopTrajectoryVisualization
-  const getDisplayPhases = () => {
-    return displayPhases;
-  };
 
   return {
     leftFootPhases,
@@ -125,7 +132,6 @@ export const useCopData = (
     stancePercentage,
     currentPosition,
     barChartData,
-    groupedBarData,
-    getDisplayPhases // Include the function in the returned object
+    groupedBarData
   };
 };

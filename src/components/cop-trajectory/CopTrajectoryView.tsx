@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ResponsiveContainer, ScatterChart, CartesianGrid, XAxis, YAxis, ZAxis, Tooltip, Legend, Scatter, ReferenceLine } from 'recharts';
 import { StancePhase } from '@/utils/pressureDataProcessor';
 
@@ -14,6 +13,23 @@ const CopTrajectoryView: React.FC<CopTrajectoryViewProps> = ({
   displayPhases, 
   currentPosition 
 }) => {
+  const optimizedDisplayPhases = useMemo(() => {
+    const limitedPhases = displayPhases.slice(0, 10);
+    return limitedPhases.map(phase => {
+      if (phase.copTrajectory.length > 50) {
+        const samplingRate = Math.ceil(phase.copTrajectory.length / 50);
+        return {
+          ...phase,
+          optimizedTrajectory: phase.copTrajectory.filter((_, i) => i % samplingRate === 0)
+        };
+      }
+      return {
+        ...phase,
+        optimizedTrajectory: phase.copTrajectory
+      };
+    });
+  }, [displayPhases]);
+  
   return (
     <div className="bg-white border rounded-md p-4">
       <h3 className="text-base font-medium mb-2">COP Trajectory Path</h3>
@@ -92,23 +108,22 @@ const CopTrajectoryView: React.FC<CopTrajectoryViewProps> = ({
             
             <Legend />
             
-            {/* Display trajectories based on active view - improved rendering */}
-            {displayPhases.slice(0, 10).map((phase, index) => (
+            {optimizedDisplayPhases.map((phase, index) => (
               <Scatter 
                 key={`${phase.foot}-${phase.startTime}`}
                 name={`${phase.foot === 'left' ? 'Left' : 'Right'} Foot - ${phase.startTime.toFixed(1)}s`} 
-                data={phase.copTrajectory.filter((_, i) => i % 2 === 0)} // Sample every other point for performance
+                data={phase.optimizedTrajectory}
                 fill={phase.foot === 'left' ? "#8884d8" : "#82ca9d"}
-                fillOpacity={phase === currentStancePhase ? 0.8 : 0.3}
-                stroke={phase === currentStancePhase ? (phase.foot === 'left' ? "#6a5acd" : "#2e8b57") : "none"}
+                fillOpacity={phase.startTime === currentStancePhase?.startTime ? 0.8 : 0.3}
+                stroke={phase.startTime === currentStancePhase?.startTime ? 
+                  (phase.foot === 'left' ? "#6a5acd" : "#2e8b57") : "none"}
                 strokeWidth={1.5}
-                line={phase === currentStancePhase}
-                lineType="fitting" // Using "fitting" to fix TypeScript error
-                isAnimationActive={false} // Disable animations for better performance
+                line={phase.startTime === currentStancePhase?.startTime}
+                lineType="fitting"
+                isAnimationActive={false}
               />
             ))}
             
-            {/* Highlight current position */}
             {currentPosition && currentStancePhase && (
               <Scatter 
                 name="Current Position" 

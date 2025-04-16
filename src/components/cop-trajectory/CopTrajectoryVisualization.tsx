@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +25,30 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
   const [chartOpacity, setChartOpacity] = useState(0);
   const [dataReady, setDataReady] = useState(false);
   
+  // Performance optimization: Limit stancePhases to the most relevant ones
+  const optimizedStancePhases = useMemo(() => {
+    if (!stancePhases || stancePhases.length === 0) return [];
+    
+    // If we have a very large dataset, only process phases around the current time
+    // and limit the total number to improve performance on large files
+    if (stancePhases.length > 500) {
+      const timeWindow = 10; // 10 seconds around current time
+      const nearbyPhases = stancePhases.filter(
+        phase => Math.abs(phase.startTime - currentTime) < timeWindow
+      );
+      
+      // If we still have too many phases, sample them
+      if (nearbyPhases.length > 50) {
+        const samplingRate = Math.ceil(nearbyPhases.length / 50);
+        return nearbyPhases.filter((_, index) => index % samplingRate === 0);
+      }
+      
+      return nearbyPhases;
+    }
+    
+    return stancePhases;
+  }, [stancePhases, currentTime]);
+  
   const {
     leftFootPhases,
     rightFootPhases,
@@ -33,7 +58,7 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     currentPosition,
     barChartData,
     groupedBarData
-  } = useCopData(stancePhases, currentTime, footView);
+  } = useCopData(optimizedStancePhases, currentTime, footView);
   
   useEffect(() => {
     if (!stancePhases || stancePhases.length === 0) {
