@@ -1,10 +1,10 @@
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
 
 interface TimeRange {
   start: number;
-  end: number | null;
+  end: number;
 }
 
 interface UsePlaybackProps {
@@ -13,68 +13,71 @@ interface UsePlaybackProps {
 }
 
 export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
+  // Basic playback state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>({
     start: 0,
-    end: null
+    end: 100
   });
   
+  // Animation frame reference for smooth playback
   const animationRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
   
-  // Update current time (with optional callback)
-  const handleTimeChange = useCallback((newTime: number) => {
+  // Get duration from data
+  const duration = data?.pressureData.length ? 
+    data.pressureData[data.pressureData.length - 1].time : 
+    100;
+  
+  // Update time and call onChange callback
+  const updateTime = (newTime: number) => {
     setCurrentTime(newTime);
     if (onTimeChange) {
       onTimeChange(newTime);
     }
-  }, [onTimeChange]);
+  };
   
   // Animation function for playback
-  const animate = useCallback((timestamp: number) => {
+  const animate = (timestamp: number) => {
     if (!lastTimestampRef.current) {
       lastTimestampRef.current = timestamp;
       animationRef.current = requestAnimationFrame(animate);
       return;
     }
     
+    // Calculate delta time in seconds
     const deltaTime = (timestamp - lastTimestampRef.current) / 1000;
     lastTimestampRef.current = timestamp;
     
     if (data) {
-      // Calculate new time
-      const newTime = currentTime + (deltaTime * playbackSpeed);
+      // Calculate new time with playback speed
+      let newTime = currentTime + (deltaTime * playbackSpeed);
       
-      // Get maximum time
-      const maxTime = timeRange.end !== null ? 
-        Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
-        data.pressureData[data.pressureData.length - 1].time;
-      
-      // Check if playback should stop
-      if (newTime >= maxTime) {
+      // Check if we've reached the end of the range
+      if (newTime >= timeRange.end || newTime >= duration) {
         setIsPlaying(false);
-        handleTimeChange(maxTime);
-      } else {
-        handleTimeChange(newTime);
+        newTime = Math.min(timeRange.end, duration);
       }
+      
+      // Update time
+      updateTime(newTime);
     }
     
     if (isPlaying) {
       animationRef.current = requestAnimationFrame(animate);
     }
-  }, [currentTime, data, isPlaying, playbackSpeed, timeRange, handleTimeChange]);
+  };
   
-  // Start/stop animation loop based on isPlaying state
+  // Start/stop animation based on isPlaying state
   useEffect(() => {
     if (isPlaying) {
       lastTimestampRef.current = null;
       animationRef.current = requestAnimationFrame(animate);
     } else if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
     }
     
     return () => {
@@ -82,74 +85,9 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, animate]);
+  }, [isPlaying]);
   
-  // Play function
-  const handlePlay = useCallback(() => {
-    if (!data) return;
-    
-    const maxTime = timeRange.end !== null ? 
-      Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
-      data.pressureData[data.pressureData.length - 1].time;
-    
-    // If at the end, start from beginning
-    if (currentTime >= maxTime) {
-      handleTimeChange(timeRange.start);
-    }
-    
-    setIsPlaying(true);
-  }, [data, currentTime, timeRange, handleTimeChange]);
-  
-  // Core playback functions
-  const handlePause = useCallback(() => setIsPlaying(false), []);
-  
-  const handleReset = useCallback(() => {
-    setIsPlaying(false);
-    handleTimeChange(timeRange.start);
-  }, [timeRange.start, handleTimeChange]);
-  
-  const handleSeek = useCallback((time: number) => {
-    if (isPlaying) {
-      setIsPlaying(false);
-    }
-    handleTimeChange(time);
-  }, [isPlaying, handleTimeChange]);
-  
-  const handleStepBackward = useCallback(() => {
-    const newTime = Math.max(timeRange.start, currentTime - 0.1);
-    handleTimeChange(newTime);
-  }, [currentTime, timeRange.start, handleTimeChange]);
-  
-  const handleStepForward = useCallback(() => {
-    if (!data) return;
-    
-    const maxTime = timeRange.end !== null ? 
-      Math.min(timeRange.end, data.pressureData[data.pressureData.length - 1].time) : 
-      data.pressureData[data.pressureData.length - 1].time;
-    
-    const newTime = Math.min(maxTime, currentTime + 0.1);
-    handleTimeChange(newTime);
-  }, [data, currentTime, timeRange.end, handleTimeChange]);
-  
-  const handleSpeedChange = useCallback((speed: number) => {
-    setPlaybackSpeed(speed);
-  }, []);
-  
-  const handleMuteToggle = useCallback(() => {
-    setIsMuted(prev => !prev);
-  }, []);
-  
-  const handleTimeRangeChange = useCallback((startTime: number, endTime: number) => {
-    setTimeRange({
-      start: startTime,
-      end: endTime
-    });
-    
-    // Reset to start of new range
-    handleTimeChange(startTime);
-  }, [handleTimeChange]);
-  
-  // Init time range when data changes
+  // Initialize time range when data changes
   useEffect(() => {
     if (data && data.pressureData.length > 0) {
       const start = data.pressureData[0].time;
@@ -160,9 +98,68 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
         end: end
       });
       
-      handleTimeChange(start);
+      // Reset to start time when data changes
+      updateTime(start);
     }
-  }, [data, handleTimeChange]);
+  }, [data]);
+  
+  // Playback control functions
+  const handlePlay = () => {
+    if (!data) return;
+    
+    // If at the end, start from beginning
+    if (currentTime >= timeRange.end || currentTime >= duration) {
+      updateTime(timeRange.start);
+    }
+    
+    setIsPlaying(true);
+  };
+  
+  const handlePause = () => {
+    setIsPlaying(false);
+  };
+  
+  const handleReset = () => {
+    setIsPlaying(false);
+    updateTime(timeRange.start);
+  };
+  
+  const handleSeek = (time: number) => {
+    if (isPlaying) {
+      setIsPlaying(false);
+    }
+    updateTime(time);
+  };
+  
+  const handleStepBackward = () => {
+    const newTime = Math.max(timeRange.start, currentTime - 0.1);
+    updateTime(newTime);
+  };
+  
+  const handleStepForward = () => {
+    if (!data) return;
+    const maxTime = Math.min(timeRange.end, duration);
+    const newTime = Math.min(maxTime, currentTime + 0.1);
+    updateTime(newTime);
+  };
+  
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+  };
+  
+  const handleMuteToggle = () => {
+    setIsMuted(prev => !prev);
+  };
+  
+  const handleTimeRangeChange = (start: number, end: number) => {
+    setTimeRange({
+      start,
+      end
+    });
+    
+    // Reset to start of new range
+    updateTime(start);
+  };
   
   return {
     isPlaying,
@@ -170,6 +167,7 @@ export const usePlayback = ({ data, onTimeChange }: UsePlaybackProps) => {
     playbackSpeed,
     isMuted,
     timeRange,
+    duration,
     setTimeRange,
     handlePlay,
     handlePause,

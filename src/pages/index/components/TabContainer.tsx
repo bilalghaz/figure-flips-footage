@@ -14,7 +14,7 @@ interface TabContainerProps {
   datasets: ProcessedData[];
   currentTime: number;
   isProcessing: boolean;
-  cachedDataPoint: PressureDataPoint | null;
+  dataPoint: PressureDataPoint | null;
   getCurrentDataPoint: () => PressureDataPoint | null;
   onFilter: (filteredData: ProcessedData) => void;
   onExport: () => void;
@@ -29,7 +29,7 @@ const TabContainer: React.FC<TabContainerProps> = ({
   datasets,
   currentTime,
   isProcessing,
-  cachedDataPoint,
+  dataPoint,
   getCurrentDataPoint,
   onFilter,
   onExport,
@@ -47,7 +47,7 @@ const TabContainer: React.FC<TabContainerProps> = ({
           <VisualizationTab 
             data={data}
             currentTime={currentTime}
-            currentDataPoint={cachedDataPoint}
+            currentDataPoint={dataPoint}
             getCurrentDataPoint={getCurrentDataPoint}
           />
         );

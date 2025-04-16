@@ -19,7 +19,6 @@ interface VideoControlsProps {
   onTimeRangeChange?: (startTime: number, endTime: number) => void;
 }
 
-// This is now just a pass-through component to maintain backward compatibility
 const VideoControls = (props: VideoControlsProps) => {
   return <VideoControlsContainer {...props} />;
 };

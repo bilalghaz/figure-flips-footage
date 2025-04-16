@@ -1,5 +1,5 @@
 
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { StancePhase } from '@/utils/pressureDataProcessor';
 
 export const useCopData = (
@@ -7,52 +7,59 @@ export const useCopData = (
   currentTime: number,
   footView: 'combined' | 'left' | 'right'
 ) => {
-  // Filter phases by foot - memoized for performance
+  // Filter phases by foot
   const leftFootPhases = useMemo(() => 
-    stancePhases.filter(phase => phase.foot === 'left'),
+    stancePhases?.filter(phase => phase.foot === 'left') || [],
   [stancePhases]);
   
   const rightFootPhases = useMemo(() => 
-    stancePhases.filter(phase => phase.foot === 'right'),
+    stancePhases?.filter(phase => phase.foot === 'right') || [],
   [stancePhases]);
 
-  // Find the current stance phase - memoized for performance
+  // Find the current stance phase
   const currentStancePhase = useMemo(() => {
     if (!stancePhases || stancePhases.length === 0) return null;
     
     return stancePhases.find(phase => 
       currentTime >= phase.startTime && currentTime <= phase.endTime
-    );
+    ) || null;
   }, [stancePhases, currentTime]);
   
-  // Calculate percentage through current stance - memoized for performance
+  // Calculate percentage through current stance
   const stancePercentage = useMemo(() => {
     if (!currentStancePhase) return null;
     
     const elapsedTime = currentTime - currentStancePhase.startTime;
-    return Math.round((elapsedTime / currentStancePhase.duration) * 100);
+    const percentage = Math.round((elapsedTime / currentStancePhase.duration) * 100);
+    
+    // Ensure percentage is between 0 and 100
+    return Math.max(0, Math.min(100, percentage));
   }, [currentStancePhase, currentTime]);
   
-  // Find the current position in the trajectory - memoized for performance
+  // Find the current position in the trajectory
   const currentPosition = useMemo(() => {
-    if (!currentStancePhase || !stancePercentage) return null;
+    if (!currentStancePhase || stancePercentage === null) return null;
     
+    // Find closest position by percentage
     return currentStancePhase.copTrajectory.find(p => p.percentage === stancePercentage) || 
            currentStancePhase.copTrajectory[0];
   }, [currentStancePhase, stancePercentage]);
   
-  // Get the phase to display based on active view - memoized with useCallback
-  const getDisplayPhases = useCallback(() => {
-    if (footView === 'left') return leftFootPhases;
-    if (footView === 'right') return rightFootPhases;
-    return stancePhases;
+  // Get the phases to display based on active view
+  const displayPhases = useMemo(() => {
+    if (!stancePhases || stancePhases.length === 0) return [];
+    
+    switch (footView) {
+      case 'left': return leftFootPhases;
+      case 'right': return rightFootPhases;
+      default: return stancePhases;
+    }
   }, [footView, leftFootPhases, rightFootPhases, stancePhases]);
-  
-  // Memoize display phases to prevent recalculation
-  const displayPhases = useMemo(() => getDisplayPhases(), [getDisplayPhases]);
 
-  // Prepare bar chart data - now with both feet correctly processed
+  // Prepare bar chart data
   const barChartData = useMemo(() => {
+    if (!leftFootPhases.length && !rightFootPhases.length) return [];
+    
     const leftData = leftFootPhases.map(phase => ({
       id: `left-${phase.startTime.toFixed(1)}`,
       condition: 'Left Foot',
@@ -74,8 +81,10 @@ export const useCopData = (
     return [...leftData, ...rightData];
   }, [leftFootPhases, rightFootPhases]);
 
-  // Group bar chart data by condition - memoized for performance
+  // Group bar chart data by condition
   const groupedBarData = useMemo(() => {
+    if (!barChartData.length) return [];
+    
     // Group by foot condition
     const grouped = barChartData.reduce((acc, item) => {
       const existingGroup = acc.find(g => g.condition === item.condition);
@@ -111,7 +120,6 @@ export const useCopData = (
     stancePercentage,
     currentPosition,
     barChartData,
-    groupedBarData,
-    getDisplayPhases
+    groupedBarData
   };
 };

@@ -1,44 +1,36 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { ProcessedData, PressureDataPoint } from '@/utils/pressureDataProcessor';
 
 export const useCurrentDataPoint = (data: ProcessedData | null, currentTime: number) => {
-  const [cachedDataPoint, setCachedDataPoint] = useState<PressureDataPoint | null>(null);
+  const [dataPoint, setDataPoint] = useState<PressureDataPoint | null>(null);
   
-  // Get current data point using binary search for efficiency
-  const getCurrentDataPoint = useCallback((): PressureDataPoint | null => {
-    if (!data || !data.pressureData.length) return null;
+  useEffect(() => {
+    if (!data || !data.pressureData.length) return;
     
-    let start = 0;
-    let end = data.pressureData.length - 1;
-    
-    while (start <= end) {
-      const mid = Math.floor((start + end) / 2);
-      if (data.pressureData[mid].time === currentTime) {
-        return data.pressureData[mid];
-      }
-      
-      if (data.pressureData[mid].time < currentTime) {
-        start = mid + 1;
-      } else {
-        end = mid - 1;
-      }
-    }
-    
-    // If we didn't find an exact match, return the closest time before the current time
-    return end >= 0 ? data.pressureData[end] : data.pressureData[0];
+    // Find the closest data point to current time
+    const closestPoint = findClosestDataPoint(data.pressureData, currentTime);
+    setDataPoint(closestPoint);
   }, [data, currentTime]);
   
-  // Update cached data point when current time changes
-  useEffect(() => {
-    if (data) {
-      const point = getCurrentDataPoint();
-      setCachedDataPoint(point);
+  // Simple linear search for closest point - more reliable than binary search for this use case
+  const findClosestDataPoint = (points: PressureDataPoint[], time: number): PressureDataPoint => {
+    let closest = points[0];
+    let minDiff = Math.abs(points[0].time - time);
+    
+    for (let i = 1; i < points.length; i++) {
+      const diff = Math.abs(points[i].time - time);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = points[i];
+      }
     }
-  }, [currentTime, data, getCurrentDataPoint]);
+    
+    return closest;
+  };
   
   return {
-    cachedDataPoint,
-    getCurrentDataPoint
+    dataPoint,
+    getCurrentDataPoint: () => dataPoint
   };
 };

@@ -25,37 +25,32 @@ const PressureChart: React.FC<PressureChartProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [chartOpacity, setChartOpacity] = useState(0);
-  const lastRegionRef = useRef(region);
-  const lastModeRef = useRef(mode);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Reset loading state when key props change
   useEffect(() => {
-    // Optimize the loading state logic
-    const shouldShowLoading = lastRegionRef.current !== region || 
-                             lastModeRef.current !== mode || 
-                             !data;
-    
-    if (shouldShowLoading) {
+    if (!data) {
       setIsLoading(true);
-      setChartOpacity(0);
-      
-      lastRegionRef.current = region;
-      lastModeRef.current = mode;
-      
-      // Clear any existing timeouts
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      // Use a shorter timeout for improved responsiveness
-      timeoutRef.current = setTimeout(() => {
-        setIsLoading(false);
-        // After loading state ends, fade in the chart
-        requestAnimationFrame(() => {
-          setChartOpacity(1);
-        });
-      }, 200);
+      return;
     }
+    
+    setIsLoading(true);
+    setChartOpacity(0);
+    
+    // Clear existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    // Short timeout to allow for React rendering cycle
+    timeoutRef.current = setTimeout(() => {
+      setIsLoading(false);
+      
+      // Fade in chart after loading is complete
+      requestAnimationFrame(() => {
+        setChartOpacity(1);
+      });
+    }, 300);
     
     return () => {
       if (timeoutRef.current) {
@@ -64,18 +59,9 @@ const PressureChart: React.FC<PressureChartProps> = ({
     };
   }, [data, region, mode]);
   
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-  
   if (isLoading || !data) {
     return (
-      <div className={`relative h-[400px] w-full overflow-hidden flex flex-col items-center justify-center ${className || ''}`}>
+      <div className={`relative h-[400px] w-full flex items-center justify-center ${className || ''}`}>
         <Skeleton className="h-[350px] w-full rounded-md" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex items-center">
@@ -89,12 +75,10 @@ const PressureChart: React.FC<PressureChartProps> = ({
   
   return (
     <div 
-      className={`relative h-[400px] w-full overflow-hidden ${className || ''}`} 
+      className={`relative h-[400px] w-full ${className || ''}`} 
       style={{ 
-        contain: 'size layout',
         opacity: chartOpacity,
-        transition: 'opacity 0.2s ease-in-out',
-        willChange: 'opacity' // Optimize for animations
+        transition: 'opacity 0.3s ease-in-out'
       }}
     >
       <MemoizedEnhancedPressureChart 

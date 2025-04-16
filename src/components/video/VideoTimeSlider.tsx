@@ -17,46 +17,46 @@ export const VideoTimeSlider = ({
   onSeek,
   onPause
 }: VideoTimeSliderProps) => {
-  const [localTime, setLocalTime] = useState(currentTime);
+  const [sliderValue, setSliderValue] = useState(currentTime);
   const [isDragging, setIsDragging] = useState(false);
   
-  // Simple effect to update local time when currentTime changes (but not while dragging)
+  // Update slider value when currentTime changes (but not while dragging)
   useEffect(() => {
     if (!isDragging) {
-      setLocalTime(currentTime);
+      setSliderValue(currentTime);
     }
   }, [currentTime, isDragging]);
   
-  // Handle slider drag start
-  const handleSliderDragStart = () => {
+  const handleDragStart = () => {
     setIsDragging(true);
     if (isPlaying) {
       onPause();
     }
   };
   
-  // Handle slider value change
-  const handleSliderChange = (value: number[]) => {
-    setLocalTime(value[0]);
+  const handleValueChange = (values: number[]) => {
+    setSliderValue(values[0]);
   };
   
-  // Handle slider drag end
-  const handleSliderDragEnd = (value: number[]) => {
-    onSeek(value[0]);
+  const handleValueCommit = (values: number[]) => {
+    const newTime = values[0];
+    onSeek(newTime);
     setIsDragging(false);
   };
 
   return (
     <div className="flex-1 mx-2">
       <Slider
-        value={[localTime]}
+        value={[sliderValue]}
         min={0}
         max={duration || 100}
         step={0.01}
-        onValueChange={handleSliderChange}
-        onValueCommit={handleSliderDragEnd}
-        onMouseDown={handleSliderDragStart}
-        onTouchStart={handleSliderDragStart}
+        onValueChange={handleValueChange}
+        onValueCommit={handleValueCommit}
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+        aria-label="Playback time slider"
+        className="w-full"
       />
     </div>
   );

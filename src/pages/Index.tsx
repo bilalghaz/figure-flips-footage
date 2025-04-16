@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { usePlayback } from './index/hooks/usePlayback';
 import { useDatasetManager } from './index/hooks/useDatasetManager';
@@ -30,13 +30,14 @@ const Index = () => {
     resetAllData
   } = useDatasetManager();
   
-  // Playback controls
+  // Playback controls with enhanced logging for debugging
   const {
     isPlaying,
     currentTime,
     playbackSpeed,
     isMuted,
     timeRange,
+    duration,
     setTimeRange,
     handlePlay,
     handlePause,
@@ -47,21 +48,21 @@ const Index = () => {
     handleSpeedChange,
     handleMuteToggle,
     handleTimeRangeChange
-  } = usePlayback({ 
+  } = usePlayback({
     data,
-    onTimeChange: (time) => console.log(`Time changed to ${time}`)
+    onTimeChange: (time) => console.log(`Time changed to ${time.toFixed(2)}`)
   });
   
-  // Current data point
+  // Current data point with simplified implementation
   const {
-    cachedDataPoint,
+    dataPoint,
     getCurrentDataPoint
   } = useCurrentDataPoint(data, currentTime);
   
-  // Data export
+  // Data export with improved error handling
   const handleExportData = () => {
     try {
-      const currentDataPoint = cachedDataPoint || getCurrentDataPoint();
+      const currentDataPoint = dataPoint || getCurrentDataPoint();
       if (!currentDataPoint) {
         toast({
           title: "Export failed",
@@ -91,16 +92,6 @@ const Index = () => {
       });
     }
   };
-  
-  // Set time range when data changes
-  useEffect(() => {
-    if (data && data.pressureData.length > 0) {
-      setTimeRange({
-        start: data.pressureData[0].time,
-        end: data.pressureData[data.pressureData.length - 1].time
-      });
-    }
-  }, [data, setTimeRange]);
   
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 overflow-x-hidden">
@@ -152,7 +143,7 @@ const Index = () => {
               datasets={datasets}
               currentTime={currentTime}
               isProcessing={isProcessing}
-              cachedDataPoint={cachedDataPoint}
+              dataPoint={dataPoint}
               getCurrentDataPoint={getCurrentDataPoint}
               onFilter={handleFilterApplied}
               onExport={handleExportData}

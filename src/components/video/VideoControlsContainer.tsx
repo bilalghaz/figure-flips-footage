@@ -40,9 +40,14 @@ const VideoControlsContainer = ({
   onStepForward,
   onTimeRangeChange
 }: VideoControlsContainerProps) => {
+  // Prevent negative or NaN values
+  const sanitizedDuration = isNaN(duration) || duration < 0 ? 0 : duration;
+  const sanitizedCurrentTime = isNaN(currentTime) || currentTime < 0 ? 0 : 
+    (currentTime > sanitizedDuration ? sanitizedDuration : currentTime);
+
   return (
     <div className="flex flex-col w-full gap-2 bg-white p-4 rounded-md shadow-md">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <VideoTransportControls
           isPlaying={isPlaying}
           onPlay={onPlay}
@@ -52,35 +57,39 @@ const VideoControlsContainer = ({
           onStepForward={onStepForward}
         />
         
-        <VideoTimeSlider
-          currentTime={currentTime}
-          duration={duration}
-          isPlaying={isPlaying}
-          onSeek={onSeek}
-          onPause={onPause}
-        />
-        
-        <VideoTimeDisplay
-          currentTime={currentTime}
-          duration={duration}
-        />
-
-        <VideoVolumeControl
-          isMuted={isMuted}
-          onMuteToggle={onMuteToggle}
-        />
-
-        <VideoSpeedSelector
-          playbackSpeed={playbackSpeed}
-          onSpeedChange={onSpeedChange}
-        />
-        
-        {onTimeRangeChange && (
-          <VideoTimeRangeSelector
-            duration={duration}
-            onTimeRangeChange={onTimeRangeChange}
+        <div className="flex-1 flex items-center min-w-[200px]">
+          <VideoTimeSlider
+            currentTime={sanitizedCurrentTime}
+            duration={sanitizedDuration}
+            isPlaying={isPlaying}
+            onSeek={onSeek}
+            onPause={onPause}
           />
-        )}
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          <VideoTimeDisplay
+            currentTime={sanitizedCurrentTime}
+            duration={sanitizedDuration}
+          />
+
+          <VideoVolumeControl
+            isMuted={isMuted}
+            onMuteToggle={onMuteToggle}
+          />
+
+          <VideoSpeedSelector
+            playbackSpeed={playbackSpeed}
+            onSpeedChange={onSpeedChange}
+          />
+          
+          {onTimeRangeChange && (
+            <VideoTimeRangeSelector
+              duration={sanitizedDuration}
+              onTimeRangeChange={onTimeRangeChange}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
