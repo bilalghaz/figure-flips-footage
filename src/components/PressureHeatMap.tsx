@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { PressureDataPoint } from '@/utils/pressureDataProcessor';
-import { Badge } from "@/components/ui/badge";
 
 interface PressureHeatMapProps {
   dataPoint: PressureDataPoint | null;
@@ -16,293 +15,187 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   maxPressure,
   mode
 }) => {
-  const [footImage, setFootImage] = useState<string>('');
-  const [showLabels, setShowLabels] = useState(true);
+  // Handle empty data
+  if (!dataPoint) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[300px] bg-background border rounded-md p-4">
+        <p className="text-muted-foreground text-center">No data available</p>
+      </div>
+    );
+  }
   
-  // This creates a simplified foot outline template
-  useEffect(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 300;
-    canvas.height = 600;
-    const ctx = canvas.getContext('2d');
-    
-    if (ctx) {
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // Get foot data based on selected side
+  const footData = side === 'left' ? dataPoint.leftFoot : dataPoint.rightFoot;
+
+  // Calculate colors for each region
+  const regionColors = useMemo(() => {
+    const regions = ['heel', 'medialMidfoot', 'lateralMidfoot', 'forefoot', 'toes', 'hallux'];
+    const colors: Record<string, string> = {};
+
+    regions.forEach(region => {
+      const pressure = footData[region][mode];
+      const normalizedPressure = Math.min(pressure / maxPressure, 1);
       
-      // Draw a simple foot outline (reversed for right foot)
-      ctx.fillStyle = '#f8f8f8';
-      ctx.strokeStyle = '#999';
-      ctx.lineWidth = 2;
+      // Rainbow color gradient (blue -> cyan -> green -> yellow -> red)
+      let r, g, b;
       
-      ctx.beginPath();
-      
-      if (side === 'left') {
-        // Left foot outline
-        ctx.moveTo(100, 500);
-        ctx.quadraticCurveTo(120, 420, 130, 300);
-        ctx.quadraticCurveTo(140, 200, 170, 120);
-        ctx.quadraticCurveTo(200, 80, 220, 70);
-        ctx.quadraticCurveTo(240, 80, 230, 150);
-        ctx.quadraticCurveTo(200, 320, 180, 420);
-        ctx.quadraticCurveTo(160, 480, 150, 520);
-        ctx.quadraticCurveTo(120, 550, 100, 500);
+      if (normalizedPressure < 0.25) {
+        // Blue to cyan
+        r = 0;
+        g = Math.round((normalizedPressure * 4) * 255);
+        b = 255;
+      } else if (normalizedPressure < 0.5) {
+        // Cyan to green
+        r = 0;
+        g = 255;
+        b = Math.round((1 - (normalizedPressure - 0.25) * 4) * 255);
+      } else if (normalizedPressure < 0.75) {
+        // Green to yellow
+        r = Math.round(((normalizedPressure - 0.5) * 4) * 255);
+        g = 255;
+        b = 0;
       } else {
-        // Right foot outline
-        ctx.moveTo(200, 500);
-        ctx.quadraticCurveTo(180, 420, 170, 300);
-        ctx.quadraticCurveTo(160, 200, 130, 120);
-        ctx.quadraticCurveTo(100, 80, 80, 70);
-        ctx.quadraticCurveTo(60, 80, 70, 150);
-        ctx.quadraticCurveTo(100, 320, 120, 420);
-        ctx.quadraticCurveTo(140, 480, 150, 520);
-        ctx.quadraticCurveTo(180, 550, 200, 500);
+        // Yellow to red
+        r = 255;
+        g = Math.round((1 - (normalizedPressure - 0.75) * 4) * 255);
+        b = 0;
       }
       
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      
-      setFootImage(canvas.toDataURL());
-    }
-  }, [side]);
-  
-  const getPressureColor = (pressure: number) => {
-    // Color scale from blue (low) to red (high) through green, yellow
-    const normalized = Math.min(pressure / maxPressure, 1);
+      colors[region] = `rgb(${r}, ${g}, ${b})`;
+    });
     
-    // RGB for gradient from blue (low) to red (high) through green, yellow
-    let r, g, b;
-    
-    if (normalized < 0.25) {
-      // Blue to cyan
-      r = 0;
-      g = Math.round(normalized * 4 * 255);
-      b = 255;
-    } else if (normalized < 0.5) {
-      // Cyan to green
-      r = 0;
-      g = 255;
-      b = Math.round(255 - ((normalized - 0.25) * 4 * 255));
-    } else if (normalized < 0.75) {
-      // Green to yellow
-      r = Math.round((normalized - 0.5) * 4 * 255);
-      g = 255;
-      b = 0;
-    } else {
-      // Yellow to red
-      r = 255;
-      g = Math.round(255 - ((normalized - 0.75) * 4 * 255));
-      b = 0;
-    }
-    
-    return `rgb(${r}, ${g}, ${b})`;
-  };
+    return colors;
+  }, [footData, maxPressure, mode]);
   
-  const getPressureIntensity = (pressure: number) => {
-    const normalized = Math.min(pressure / maxPressure, 1);
-    if (normalized < 0.2) return 'Very Low';
-    if (normalized < 0.4) return 'Low';
-    if (normalized < 0.6) return 'Medium';
-    if (normalized < 0.8) return 'High';
-    return 'Very High';
-  };
-  
-  const getRegionStyle = (region: string) => {
-    if (!dataPoint) {
-      return { backgroundColor: 'rgba(200, 200, 200, 0.2)' };
-    }
-    
-    const regionData = dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'][region];
-    const pressure = mode === 'peak' ? regionData.peak : regionData.mean;
-    
-    return {
-      backgroundColor: getPressureColor(pressure),
-      opacity: 0.8
-    };
-  };
-  
-  // Get gait event indicators
-  const isHeelStrike = (dataPoint: PressureDataPoint | null) => {
-    if (!dataPoint) return false;
-    const heelPressure = dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].heel.peak;
-    return heelPressure >= 25; // 25 kPa threshold
-  };
-  
-  const isToeOff = (dataPoint: PressureDataPoint | null) => {
-    if (!dataPoint) return false;
-    const toesPressure = dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].toes.peak;
-    const halluxPressure = dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].hallux.peak;
-    return (toesPressure >= 20 || halluxPressure >= 20); // 20 kPa threshold
+  // Format a pressure value for display
+  const formatPressure = (value: number) => {
+    return value.toFixed(1);
   };
   
   return (
-    <div className="relative h-[600px] w-[300px] bg-white rounded-md shadow-md p-4">
-      {/* Controls */}
-      <div className="absolute top-2 right-2 z-10">
-        <button 
-          onClick={() => setShowLabels(!showLabels)}
-          className="text-xs bg-slate-100 px-2 py-1 rounded hover:bg-slate-200"
+    <div className="flex flex-col items-center space-y-4 bg-card rounded-md p-4 shadow-sm">
+      <h3 className="text-lg font-medium">
+        {side === 'left' ? 'Left' : 'Right'} Foot
+      </h3>
+      
+      <div className="relative w-[220px] h-[400px]">
+        {/* Foot outline - flipped horizontally for right foot */}
+        <svg 
+          viewBox="0 0 100 180" 
+          className={`w-full h-full ${side === 'right' ? 'scale-x-[-1]' : ''}`}
         >
-          {showLabels ? 'Hide Labels' : 'Show Labels'}
-        </button>
-      </div>
-      
-      {/* Foot title */}
-      <div className="absolute top-0 left-0 w-full text-center font-semibold py-2">
-        {side === 'left' ? 'Left Foot' : 'Right Foot'}
-        {dataPoint && (
-          <>
-            {isHeelStrike(dataPoint) && (
-              <Badge className="ml-2 bg-blue-500">Heel Strike</Badge>
-            )}
-            {isToeOff(dataPoint) && (
-              <Badge className="ml-2 bg-red-500">Toe Off</Badge>
-            )}
-          </>
-        )}
-      </div>
-      
-      {/* Foot background */}
-      <div className="relative mt-8 h-[550px] w-full">
-        {footImage && (
-          <img 
-            src={footImage} 
-            alt={`${side} foot outline`} 
-            className="absolute top-0 left-0 w-full h-full"
+          {/* Foot outline */}
+          <path 
+            d="M30,10 C45,10 65,15 75,25 C85,35 90,50 90,70 C90,100 85,130 75,150 C65,170 55,175 50,175 C45,175 35,170 25,150 C15,130 10,100 10,70 C10,50 15,35 25,25 C35,15 50,10 30,10 Z" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="1.5"
+            className="text-muted-foreground"
           />
-        )}
-        
-        {/* Overlaid pressure regions */}
-        <div className="absolute top-0 left-0 w-full h-full">
-          {/* Heel region */}
-          <div 
-            className="absolute rounded-full flex items-center justify-center"
-            style={{
-              ...getRegionStyle('heel'),
-              width: '120px',
-              height: '120px',
-              bottom: '40px',
-              left: side === 'left' ? '90px' : '90px'
-            }}
-          >
-            {showLabels && dataPoint && (
-              <span className="text-xs font-bold text-white drop-shadow-md">
-                {dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].heel[mode].toFixed(1)}
-              </span>
-            )}
-          </div>
           
-          {/* Medial midfoot */}
-          <div 
-            className="absolute rounded-full flex items-center justify-center"
-            style={{
-              ...getRegionStyle('medialMidfoot'),
-              width: '100px',
-              height: '180px',
-              bottom: '130px',
-              left: side === 'left' ? '140px' : '60px'
-            }}
+          {/* Heel region */}
+          <path 
+            d="M30,150 C40,165 60,165 70,150 C75,130 75,110 75,110 L25,110 C25,110 25,130 30,150 Z" 
+            fill={regionColors.heel}
+            stroke="rgba(0,0,0,0.2)" 
+            strokeWidth="0.5"
           >
-            {showLabels && dataPoint && (
-              <span className="text-xs font-bold text-white drop-shadow-md">
-                {dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].medialMidfoot[mode].toFixed(1)}
-              </span>
-            )}
-          </div>
+            <title>{`Heel: ${formatPressure(footData.heel[mode])} kPa`}</title>
+          </path>
           
           {/* Lateral midfoot */}
-          <div 
-            className="absolute rounded-full flex items-center justify-center"
-            style={{
-              ...getRegionStyle('lateralMidfoot'),
-              width: '100px',
-              height: '180px',
-              bottom: '130px',
-              left: side === 'left' ? '60px' : '140px'
-            }}
+          <path 
+            d="M25,110 L25,65 L40,65 L45,110 Z" 
+            fill={regionColors.lateralMidfoot}
+            stroke="rgba(0,0,0,0.2)" 
+            strokeWidth="0.5"
           >
-            {showLabels && dataPoint && (
-              <span className="text-xs font-bold text-white drop-shadow-md">
-                {dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].lateralMidfoot[mode].toFixed(1)}
-              </span>
-            )}
-          </div>
+            <title>{`Lateral Midfoot: ${formatPressure(footData.lateralMidfoot[mode])} kPa`}</title>
+          </path>
+          
+          {/* Medial midfoot */}
+          <path 
+            d="M45,110 L40,65 L75,65 L75,110 Z" 
+            fill={regionColors.medialMidfoot}
+            stroke="rgba(0,0,0,0.2)" 
+            strokeWidth="0.5"
+          >
+            <title>{`Medial Midfoot: ${formatPressure(footData.medialMidfoot[mode])} kPa`}</title>
+          </path>
           
           {/* Forefoot */}
-          <div 
-            className="absolute rounded-full flex items-center justify-center"
-            style={{
-              ...getRegionStyle('forefoot'),
-              width: '140px',
-              height: '140px',
-              bottom: '280px',
-              left: '80px'
-            }}
+          <path 
+            d="M25,65 L25,40 C25,40 35,30 50,30 C65,30 75,40 75,40 L75,65 L40,65 Z" 
+            fill={regionColors.forefoot}
+            stroke="rgba(0,0,0,0.2)" 
+            strokeWidth="0.5"
           >
-            {showLabels && dataPoint && (
-              <span className="text-xs font-bold text-white drop-shadow-md">
-                {dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].forefoot[mode].toFixed(1)}
-              </span>
-            )}
-          </div>
+            <title>{`Forefoot: ${formatPressure(footData.forefoot[mode])} kPa`}</title>
+          </path>
           
           {/* Toes */}
-          <div 
-            className="absolute rounded-full flex items-center justify-center"
-            style={{
-              ...getRegionStyle('toes'),
-              width: '120px',
-              height: '80px',
-              bottom: '400px',
-              left: '90px'
-            }}
+          <path 
+            d="M33,40 C33,40 35,25 50,25 C65,25 67,40 67,40 C67,40 60,30 50,30 C40,30 33,40 33,40 Z" 
+            fill={regionColors.toes}
+            stroke="rgba(0,0,0,0.2)" 
+            strokeWidth="0.5"
           >
-            {showLabels && dataPoint && (
-              <span className="text-xs font-bold text-white drop-shadow-md">
-                {dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].toes[mode].toFixed(1)}
-              </span>
-            )}
-          </div>
+            <title>{`Toes: ${formatPressure(footData.toes[mode])} kPa`}</title>
+          </path>
           
-          {/* Hallux */}
-          <div 
-            className="absolute rounded-full flex items-center justify-center"
-            style={{
-              ...getRegionStyle('hallux'),
-              width: '60px',
-              height: '70px',
-              bottom: '460px',
-              left: side === 'left' ? '150px' : '90px'
-            }}
+          {/* Hallux (big toe) */}
+          <circle 
+            cx="37" 
+            cy="30" 
+            r="8" 
+            fill={regionColors.hallux}
+            stroke="rgba(0,0,0,0.2)" 
+            strokeWidth="0.5"
           >
-            {showLabels && dataPoint && (
-              <span className="text-xs font-bold text-white drop-shadow-md">
-                {dataPoint[side === 'left' ? 'leftFoot' : 'rightFoot'].hallux[mode].toFixed(1)}
-              </span>
-            )}
-          </div>
+            <title>{`Hallux: ${formatPressure(footData.hallux[mode])} kPa`}</title>
+          </circle>
+          
+          {/* Labels - only show on left foot to avoid mirrored text */}
+          {side === 'left' && (
+            <>
+              <text x="50" y="140" fontSize="8" textAnchor="middle" fill="white">Heel</text>
+              <text x="35" y="90" fontSize="6" textAnchor="middle" fill="white">Lat Mid</text>
+              <text x="60" y="90" fontSize="6" textAnchor="middle" fill="white">Med Mid</text>
+              <text x="50" y="50" fontSize="8" textAnchor="middle" fill="white">Forefoot</text>
+              <text x="50" y="30" fontSize="6" textAnchor="middle" fill="white">Toes</text>
+              <text x="37" y="30" fontSize="6" textAnchor="middle" fill="white">H</text>
+            </>
+          )}
+        </svg>
+      </div>
+      
+      <div className="w-full">
+        <div className="h-4 w-full rounded-md bg-gradient-to-r from-blue-600 via-green-500 to-red-600"></div>
+        <div className="flex justify-between text-xs mt-1 text-muted-foreground">
+          <span>0</span>
+          <span>{(maxPressure * 0.5).toFixed(0)}</span>
+          <span>{maxPressure.toFixed(0)} kPa</span>
         </div>
       </div>
       
-      {/* Pressure color scale */}
-      <div className="absolute bottom-2 left-0 w-full px-4">
-        <div className="h-4 w-full flex rounded-sm overflow-hidden">
-          {Array.from({ length: 100 }).map((_, i) => (
-            <div 
-              key={i} 
-              className="h-full flex-grow" 
-              style={{ backgroundColor: getPressureColor((i / 100) * maxPressure) }}
-            />
-          ))}
-        </div>
-        <div className="flex justify-between text-[10px] text-gray-600 mt-1">
-          <span>0</span>
-          <span>{(maxPressure * 0.25).toFixed(0)}</span>
-          <span>{(maxPressure * 0.5).toFixed(0)}</span>
-          <span>{(maxPressure * 0.75).toFixed(0)}</span>
-          <span>{maxPressure.toFixed(0)} kPa</span>
-        </div>
+      <div className="grid grid-cols-2 gap-2 w-full text-sm">
+        {Object.entries(footData).map(([region, data]) => {
+          const displayNames: Record<string, string> = {
+            heel: 'Heel',
+            medialMidfoot: 'Medial Midfoot',
+            lateralMidfoot: 'Lateral Midfoot',
+            forefoot: 'Forefoot',
+            toes: 'Toes',
+            hallux: 'Hallux'
+          };
+          
+          return (
+            <div key={region} className="flex justify-between">
+              <span>{displayNames[region] || region}</span>
+              <span className="font-mono">{formatPressure(data[mode])}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

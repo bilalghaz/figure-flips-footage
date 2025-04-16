@@ -1,9 +1,18 @@
 
-import React, { useState, useEffect, useRef, memo } from 'react';
-import EnhancedPressureChart from './EnhancedPressureChart';
+import React, { memo } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ReferenceLine
+} from 'recharts';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
 import { Skeleton } from '@/components/ui/skeleton';
-import { LoaderCircle } from 'lucide-react';
 
 interface PressureChartProps {
   data: ProcessedData | null;
@@ -13,9 +22,6 @@ interface PressureChartProps {
   className?: string;
 }
 
-// Memoize the chart component to prevent unnecessary re-renders
-const MemoizedEnhancedPressureChart = memo(EnhancedPressureChart);
-
 const PressureChart: React.FC<PressureChartProps> = ({ 
   data, 
   currentTime, 
@@ -23,70 +29,131 @@ const PressureChart: React.FC<PressureChartProps> = ({
   mode,
   className
 }) => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [chartOpacity, setChartOpacity] = useState(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Reset loading state when key props change
-  useEffect(() => {
-    if (!data) {
-      setIsLoading(true);
-      return;
-    }
-    
-    setIsLoading(true);
-    setChartOpacity(0);
-    
-    // Clear existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    
-    // Short timeout to allow for React rendering cycle
-    timeoutRef.current = setTimeout(() => {
-      setIsLoading(false);
-      
-      // Fade in chart after loading is complete
-      requestAnimationFrame(() => {
-        setChartOpacity(1);
-      });
-    }, 300);
-    
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [data, region, mode]);
-  
-  if (isLoading || !data) {
+  if (!data) {
     return (
       <div className={`relative h-[400px] w-full flex items-center justify-center ${className || ''}`}>
         <Skeleton className="h-[350px] w-full rounded-md" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex items-center">
-            <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
-            <span className="text-sm text-muted-foreground">Loading chart...</span>
-          </div>
-        </div>
       </div>
     );
   }
   
+  // Sample data points for better performance
+  const maxPoints = 200; // Limit to maximum 200 points for better performance
+  const stride = Math.max(1, Math.floor(data.pressureData.length / maxPoints));
+  
+  const chartData = [];
+  for (let i = 0; i < data.pressureData.length; i += stride) {
+    const point = data.pressureData[i];
+    chartData.push({
+      time: point.time,
+      left: point.leftFoot[region][mode],
+      right: point.rightFoot[region][mode],
+      current: point.time <= currentTime
+    });
+  }
+  
+  // Always include the current time point for accurate display
+  const currentIndex = data.pressureData.findIndex(point => point.time > currentTime);
+  if (currentIndex > 0) {
+    const currentPoint = data.pressureData[currentIndex - 1];
+    chartData.push({
+      time: currentPoint.time,
+      left: currentPoint.leftFoot[region][mode],
+      right: currentPoint.rightFoot[region][mode],
+      current: true
+    });
+  }
+  
+  // Sort to ensure correct order
+  chartData.sort((a, b) => a.time - b.time);
+  
+  // Calculate max Y value for the chart
+  const maxValue = Math.max(
+    ...chartData.map(d => Math.max(d.left, d.right)),
+    mode === 'peak' ? data.maxPeakPressure * 0.5 : data.maxMeanPressure * 0.5
+  ) * 1.1;
+  
+  const getRegionName = (region: string) => {
+    switch (region) {
+      case 'heel': return 'Heel';
+      case 'medialMidfoot': return 'Medial Midfoot';
+      case 'lateralMidfoot': return 'Lateral Midfoot';
+      case 'forefoot': return 'Forefoot';
+      case 'toes': return 'Toes';
+      case 'hallux': return 'Hallux';
+      default: return region;
+    }
+  };
+  
   return (
-    <div 
-      className={`relative h-[400px] w-full ${className || ''}`} 
-      style={{ 
-        opacity: chartOpacity,
-        transition: 'opacity 0.3s ease-in-out'
-      }}
-    >
-      <MemoizedEnhancedPressureChart 
-        data={data} 
-        currentTime={currentTime} 
-        region={region} 
-        mode={mode} 
-      />
+    <div className="h-[400px] bg-card p-4 rounded-md shadow-sm">
+      <h3 className="text-sm font-medium mb-4">
+        {getRegionName(region)} {mode === 'peak' ? 'Peak' : 'Mean'} Pressure (kPa)
+      </h3>
+      
+      <div className="relative h-[350px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chartData}
+            margin={{ top: 10, right: 30, left: 10, bottom: 30 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+            <XAxis 
+              dataKey="time" 
+              label={{ value: 'Time (s)', position: 'insideBottomRight', offset: -10 }}
+              type="number"
+              scale="linear"
+              tickFormatter={(value) => value.toFixed(1)}
+            />
+            <YAxis 
+              label={{ value: 'Pressure (kPa)', angle: -90, position: 'insideLeft', offset: 0 }}
+              domain={[0, maxValue]}
+              tickFormatter={(value) => value.toFixed(0)}
+            />
+            <Tooltip 
+              formatter={(value: number) => [value.toFixed(2) + ' kPa']}
+              labelFormatter={(time) => `Time: ${Number(time).toFixed(2)}s`}
+              contentStyle={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)' }}
+            />
+            <Legend verticalAlign="top" height={36} />
+            
+            {/* Current time reference line */}
+            <ReferenceLine 
+              x={currentTime} 
+              stroke="var(--destructive)" 
+              strokeWidth={2} 
+              strokeDasharray="3 3"
+              label={{ 
+                value: 'Current', 
+                position: 'top', 
+                fill: 'var(--destructive)',
+                fontSize: 12
+              }}
+            />
+            
+            <Line 
+              type="monotone" 
+              dataKey="left" 
+              name="Left Foot" 
+              stroke="#8884d8" 
+              activeDot={{ r: 8 }} 
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false} // Disable animations for better performance
+            />
+            <Line 
+              type="monotone" 
+              dataKey="right" 
+              name="Right Foot" 
+              stroke="#82ca9d" 
+              activeDot={{ r: 8 }}
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false} // Disable animations for better performance
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 };

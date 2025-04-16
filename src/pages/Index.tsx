@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { usePlayback } from './index/hooks/usePlayback';
-import { useDatasetManager } from './index/hooks/useDatasetManager';
-import { useCurrentDataPoint } from './index/hooks/useCurrentDataPoint';
-import { exportDataPoint } from './index/utils/dataExport';
-import DataUploader from './index/components/DataUploader';
-import DataControls from './index/components/DataControls';
-import TabContainer from './index/components/TabContainer';
+import { usePlayback } from '@/hooks/usePlayback';
+import { useDatasetManager } from '@/hooks/useDatasetManager';
+import { useCurrentDataPoint } from '@/hooks/useCurrentDataPoint';
+import { exportDataPoint } from '@/utils/dataExport';
+import DataUploader from '@/components/DataUploader';
+import DataControls from '@/components/DataControls';
+import TabContainer from '@/components/TabContainer';
 
 const Index = () => {
   const { toast } = useToast();
@@ -20,9 +20,7 @@ const Index = () => {
     activeDatasetIndex,
     isProcessing,
     setIsProcessing,
-    copFile,
     handleDataProcessed,
-    handleCopFileSelected,
     handleFilterApplied,
     handleResetData,
     handleDatasetChange,
@@ -30,7 +28,7 @@ const Index = () => {
     resetAllData
   } = useDatasetManager();
   
-  // Playback controls with enhanced logging for debugging
+  // Playback controls
   const {
     isPlaying,
     currentTime,
@@ -38,7 +36,6 @@ const Index = () => {
     isMuted,
     timeRange,
     duration,
-    setTimeRange,
     handlePlay,
     handlePause,
     handleReset,
@@ -53,13 +50,13 @@ const Index = () => {
     onTimeChange: (time) => console.log(`Time changed to ${time.toFixed(2)}`)
   });
   
-  // Current data point with simplified implementation
+  // Current data point
   const {
     dataPoint,
     getCurrentDataPoint
   } = useCurrentDataPoint(data, currentTime);
   
-  // Data export with improved error handling
+  // Export current data point
   const handleExportData = () => {
     try {
       const currentDataPoint = dataPoint || getCurrentDataPoint();
@@ -94,11 +91,11 @@ const Index = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6 overflow-x-hidden">
+    <div className="min-h-screen bg-background p-4 md:p-6 overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         <header className="mb-6 md:mb-10">
           <h1 className="text-2xl md:text-3xl font-bold text-center">Plantar Pressure Analysis</h1>
-          <p className="text-gray-600 mt-2 text-center text-sm md:text-base">
+          <p className="text-muted-foreground mt-2 text-center text-sm md:text-base">
             Upload and analyze pressure data from Pedar-X In-Shoe Pressure Measurement System
           </p>
         </header>
@@ -108,8 +105,6 @@ const Index = () => {
             onDataProcessed={handleDataProcessed}
             isProcessing={isProcessing}
             setIsProcessing={setIsProcessing}
-            copFile={copFile}
-            onCopFileSelected={handleCopFileSelected}
           />
         ) : (
           <div className="space-y-6">
@@ -126,7 +121,6 @@ const Index = () => {
               onExportData={handleExportData}
               onDatasetChange={handleDatasetChange}
               onRemoveDataset={handleRemoveDataset}
-              onCompareDatasets={() => setActiveTab('comparison')}
               onPlay={handlePlay}
               onPause={handlePause}
               onReset={handleReset}

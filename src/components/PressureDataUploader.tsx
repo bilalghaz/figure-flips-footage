@@ -149,9 +149,6 @@ const PressureDataUploader: React.FC<PressureDataUploaderProps> = ({
           <p className="text-xs text-muted-foreground">
             File should be exported from Pedar-X In-Shoe Pressure Measurement System
           </p>
-          <p className="text-xs text-primary">
-            Your M3 Pro MacBook is capable of processing large files efficiently
-          </p>
         </div>
         <div className="grid w-full max-w-sm gap-2">
           <Input
