@@ -112,6 +112,11 @@ export const useCopData = (
     });
   }, [barChartData]);
 
+  // Add this function to the returned object to match what's expected in CopTrajectoryVisualization
+  const getDisplayPhases = () => {
+    return displayPhases;
+  };
+
   return {
     leftFootPhases,
     rightFootPhases,
@@ -120,6 +125,7 @@ export const useCopData = (
     stancePercentage,
     currentPosition,
     barChartData,
-    groupedBarData
+    groupedBarData,
+    getDisplayPhases // Include the function in the returned object
   };
 };

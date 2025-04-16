@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +24,6 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
   const [chartOpacity, setChartOpacity] = useState(0);
   const [dataReady, setDataReady] = useState(false);
   
-  // Use the custom hook for all cop data calculations
   const {
     leftFootPhases,
     rightFootPhases,
@@ -34,11 +32,9 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     stancePercentage,
     currentPosition,
     barChartData,
-    groupedBarData,
-    getDisplayPhases
+    groupedBarData
   } = useCopData(stancePhases, currentTime, footView);
   
-  // Optimize initial loading with requestAnimationFrame
   useEffect(() => {
     if (!stancePhases || stancePhases.length === 0) {
       setDataReady(false);
@@ -48,7 +44,6 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     setIsLoading(true);
     setChartOpacity(0);
     
-    // Debounce and optimize loading states
     const loadingTimer = setTimeout(() => {
       setDataReady(true);
       requestAnimationFrame(() => {
@@ -63,7 +58,6 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     return () => clearTimeout(loadingTimer);
   }, [stancePhases, footView]);
   
-  // Loading state
   if (isLoading) {
     return (
       <Card>
@@ -89,7 +83,6 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     );
   }
   
-  // No data state
   if (!dataReady || !stancePhases || stancePhases.length === 0) {
     return (
       <Card>
