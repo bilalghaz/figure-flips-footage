@@ -1,4 +1,3 @@
-
 import * as XLSX from 'xlsx';
 
 // Define sensor regions based on the provided specification
@@ -34,6 +33,26 @@ export interface ProcessedData {
   maxMeanPressure: number;
   fileName?: string;
   participantId?: string;
+  stancePhases?: StancePhase[]; // Added to fix type errors
+}
+
+// Add StancePhase interface to fix imports
+export interface StancePhase {
+  startTime: number;
+  endTime: number;
+  duration: number;
+  foot: 'left' | 'right';
+  meanCopX: number;
+  meanCopY: number;
+  apRange: number;
+  mlRange: number;
+  midstanceVariability: number;
+  copTrajectory: {
+    x: number;
+    y: number;
+    force: number;
+    percentage: number;
+  }[];
 }
 
 /**
