@@ -59,7 +59,6 @@ const CopBarChartView: React.FC<CopBarChartViewProps> = ({ groupedBarData }) => 
                 }}
               />
               <Legend />
-              {/* Fixed the TypeScript error by using static colors instead of a function */}
               <Bar 
                 dataKey="apPosition" 
                 name="AP Position" 

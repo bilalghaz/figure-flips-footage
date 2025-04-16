@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import PressureDataUploader from '@/components/PressureDataUploader';
 import { FileBarChart2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,28 @@ const DataUploader: React.FC<DataUploaderProps> = ({
   copFile,
   onCopFileSelected
 }) => {
+  const handleCopFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onCopFileSelected(e.target.files[0]);
+      // Reset the input to allow selecting the same file again if needed
+      e.target.value = '';
+    }
+  };
+
+  const handleCopFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      onCopFileSelected(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
     <div className="max-w-xl mx-auto">
       <Card>
@@ -31,7 +53,11 @@ const DataUploader: React.FC<DataUploaderProps> = ({
               Upload an FGT.xlsx file containing COP and force data for enhanced analysis.
               The file should have columns for time, left/right force, and left/right COP X/Y coordinates.
             </p>
-            <div className="border-2 border-dashed border-gray-300 rounded-md p-4">
+            <div 
+              className="border-2 border-dashed border-gray-300 rounded-md p-4"
+              onDrop={handleCopFileDrop}
+              onDragOver={handleDragOver}
+            >
               {copFile ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
@@ -63,11 +89,7 @@ const DataUploader: React.FC<DataUploaderProps> = ({
                     accept=".xlsx"
                     className="hidden"
                     id="cop-file-input"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        onCopFileSelected(e.target.files[0]);
-                      }
-                    }}
+                    onChange={handleCopFileChange}
                   />
                   <label htmlFor="cop-file-input">
                     <Button variant="outline" size="sm" className="mt-2" asChild>

@@ -71,10 +71,12 @@ const CopTrajectoryVisualization: React.FC<CopTrajectoryVisualizationProps> = ({
     
     const loadingTimer = setTimeout(() => {
       setDataReady(true);
-      requestAnimationFrame(() => {
+      
+      // Use window.requestAnimationFrame for smoother transitions
+      window.requestAnimationFrame(() => {
         setIsLoading(false);
         
-        requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
           setChartOpacity(1);
         });
       });

@@ -4,7 +4,7 @@ import { ProcessedData } from '@/utils/pressureDataProcessor';
 import CopTrajectoryVisualization from '@/components/CopTrajectoryVisualization';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileBarChart2 } from 'lucide-react';
+import { FileBarChart2, AlertTriangle } from 'lucide-react';
 
 interface CopAnalysisTabProps {
   data: ProcessedData | null;
@@ -19,7 +19,8 @@ const CopAnalysisTab: React.FC<CopAnalysisTabProps> = ({
 }) => {
   if (!data) return null;
   
-  if (!data.stancePhases) {
+  // Check if COP data is available
+  if (!data.stancePhases || data.stancePhases.length === 0) {
     return (
       <div className="space-y-6">
         <Card>
@@ -43,9 +44,30 @@ const CopAnalysisTab: React.FC<CopAnalysisTabProps> = ({
       </div>
     );
   }
+
+  // Check if there are too many stance phases for efficient rendering
+  const hasTooManyPhases = data.stancePhases.length > 1000;
   
   return (
     <div className="space-y-6">
+      {hasTooManyPhases && (
+        <Card className="bg-amber-50 border-amber-200">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-amber-800">Large Dataset Detected</h4>
+                <p className="text-xs text-amber-700 mt-1">
+                  Your dataset contains a large number of stance phases ({data.stancePhases.length}). 
+                  For better performance, only phases close to the current time will be displayed.
+                  Use the time slider to navigate through your data.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       <CopTrajectoryVisualization 
         stancePhases={data.stancePhases}
         currentTime={currentTime}

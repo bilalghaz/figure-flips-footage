@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { ResponsiveContainer, ScatterChart, CartesianGrid, XAxis, YAxis, ZAxis, Tooltip, Legend, Scatter, ReferenceLine } from 'recharts';
 import { StancePhase } from '@/utils/pressureDataProcessor';
@@ -13,11 +14,15 @@ const CopTrajectoryView: React.FC<CopTrajectoryViewProps> = ({
   displayPhases, 
   currentPosition 
 }) => {
+  // Use a more aggressive sampling for very large datasets
   const optimizedDisplayPhases = useMemo(() => {
+    // Limit to maximum 10 phases for rendering performance
     const limitedPhases = displayPhases.slice(0, 10);
+    
     return limitedPhases.map(phase => {
-      if (phase.copTrajectory.length > 50) {
-        const samplingRate = Math.ceil(phase.copTrajectory.length / 50);
+      // More aggressive sampling for large trajectories
+      if (phase.copTrajectory.length > 30) {
+        const samplingRate = Math.ceil(phase.copTrajectory.length / 30);
         return {
           ...phase,
           optimizedTrajectory: phase.copTrajectory.filter((_, i) => i % samplingRate === 0)
