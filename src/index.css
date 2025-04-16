@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,32 +35,13 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
-    
-    /* Foot pressure colors */
-    --heel: 221 83% 53%;
-    --medial-midfoot: 142 76% 36%;
-    --lateral-midfoot: 31 95% 44%;
-    --forefoot: 262 83% 58%;
-    --toes: 0 84% 60%;
-    --hallux: 329 86% 56%;
-    
-    /* Foot type colors */
-    --flatfeet: 12 76% 61%;
-    --normalarch: 199 89% 48%;
   }
 
   .dark {
@@ -114,7 +94,6 @@
   }
 }
 
-/* Style for the pulse animation on the pressure point markers */
 @keyframes pulse-point {
   0% {
     transform: scale(0.95);
@@ -134,7 +113,6 @@
   animation: pulse-point 1.5s ease-in-out infinite;
 }
 
-/* Region colors */
 .bg-heel {
   background-color: hsl(var(--heel));
 }
@@ -159,7 +137,6 @@
   background-color: hsl(var(--hallux));
 }
 
-/* Foot type colors */
 .bg-flatfeet {
   background-color: hsl(var(--flatfeet));
 }
