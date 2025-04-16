@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
 
@@ -12,10 +11,11 @@ export const useDatasetManager = () => {
   
   // Handle new data processed and added to datasets
   const handleDataProcessed = (newData: ProcessedData) => {
-    setDatasets(prevDatasets => [...prevDatasets, newData]);
-    // This line had the error. We're setting the active dataset index to be the new index,
-    // which is the current length of the datasets array (before the new one is added)
-    setActiveDatasetIndex(prevDatasets => prevDatasets.length);
+    setDatasets(prevDatasets => {
+      const newDatasets = [...prevDatasets, newData];
+      setActiveDatasetIndex(newDatasets.length - 1);
+      return newDatasets;
+    });
     setIsProcessing(false);
   };
   
