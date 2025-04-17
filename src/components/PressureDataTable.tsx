@@ -10,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PressureDataPoint } from '@/utils/pressureDataProcessor';
-import { Badge } from "@/components/ui/badge";
 
 interface PressureDataTableProps {
   dataPoint: PressureDataPoint | null;
@@ -26,10 +25,11 @@ const PressureDataTable: React.FC<PressureDataTableProps> = ({ dataPoint, mode }
     );
   }
   
-  const regions = ['heel', 'medialMidfoot', 'lateralMidfoot', 'forefoot', 'toes', 'hallux'];
+  const regions = ['fullFoot', 'heel', 'medialMidfoot', 'lateralMidfoot', 'forefoot', 'toes', 'hallux'];
   
   const getDisplayName = (region: string) => {
     switch (region) {
+      case 'fullFoot': return 'Full Foot';
       case 'heel': return 'Heel';
       case 'medialMidfoot': return 'Medial Midfoot';
       case 'lateralMidfoot': return 'Lateral Midfoot';
@@ -40,12 +40,15 @@ const PressureDataTable: React.FC<PressureDataTableProps> = ({ dataPoint, mode }
     }
   };
 
-  // Function to determine asymmetry level
-  const getAsymmetryLevel = (percentDiff: number) => {
-    if (percentDiff < 5) return { label: 'Minimal', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' };
-    if (percentDiff < 15) return { label: 'Low', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' };
-    if (percentDiff < 25) return { label: 'Moderate', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' };
-    return { label: 'High', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' };
+  // Calculate full foot pressure for both feet
+  const calculateFullFootPressure = (foot: Record<string, any>) => {
+    let totalPressure = 0;
+    for (const regionKey in foot) {
+      if (foot[regionKey] && foot[regionKey][mode] !== undefined) {
+        totalPressure += foot[regionKey][mode];
+      }
+    }
+    return totalPressure;
   };
   
   return (
@@ -59,42 +62,34 @@ const PressureDataTable: React.FC<PressureDataTableProps> = ({ dataPoint, mode }
             <TableHead>Region</TableHead>
             <TableHead className="text-right">Left Foot</TableHead>
             <TableHead className="text-right">Right Foot</TableHead>
-            <TableHead className="text-right">Difference</TableHead>
-            <TableHead className="text-right">Asymmetry</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {regions.map((region) => {
-            // Add safety checks to handle missing regions in the data
-            const leftFootRegion = dataPoint.leftFoot[region];
-            const rightFootRegion = dataPoint.rightFoot[region];
+            let leftValue, rightValue;
             
-            // Skip this region if it doesn't exist in either foot
-            if (!leftFootRegion || !rightFootRegion) {
-              return null;
+            if (region === 'fullFoot') {
+              leftValue = calculateFullFootPressure(dataPoint.leftFoot);
+              rightValue = calculateFullFootPressure(dataPoint.rightFoot);
+            } else {
+              // Add safety checks to handle missing regions in the data
+              const leftFootRegion = dataPoint.leftFoot[region];
+              const rightFootRegion = dataPoint.rightFoot[region];
+              
+              // Skip this region if it doesn't exist in either foot
+              if (!leftFootRegion || !rightFootRegion) {
+                return null;
+              }
+              
+              leftValue = leftFootRegion[mode] || 0;
+              rightValue = rightFootRegion[mode] || 0;
             }
-            
-            const leftValue = leftFootRegion[mode] || 0;
-            const rightValue = rightFootRegion[mode] || 0;
-            const difference = leftValue - rightValue;
-            const absPercentDiff = Math.abs(difference) / Math.max(leftValue, rightValue, 0.001) * 100;
-            const asymmetry = getAsymmetryLevel(absPercentDiff);
             
             return (
               <TableRow key={region} className="hover:bg-muted/10">
                 <TableCell className="font-medium">{getDisplayName(region)}</TableCell>
                 <TableCell className="text-right">{leftValue.toFixed(2)}</TableCell>
                 <TableCell className="text-right">{rightValue.toFixed(2)}</TableCell>
-                <TableCell 
-                  className={`text-right ${difference > 0 ? 'text-red-500 dark:text-red-400' : difference < 0 ? 'text-blue-500 dark:text-blue-400' : ''}`}
-                >
-                  {difference.toFixed(2)} ({absPercentDiff.toFixed(1)}%)
-                </TableCell>
-                <TableCell className="text-right">
-                  <Badge variant="outline" className={`${asymmetry.color}`}>
-                    {asymmetry.label}
-                  </Badge>
-                </TableCell>
               </TableRow>
             );
           })}
