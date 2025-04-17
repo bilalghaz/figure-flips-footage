@@ -22,12 +22,10 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   const [svgContent, setSvgContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  const sensorMap = side === 'left' ? SVG_TO_SENSOR_MAP_LEFT : SVG_TO_SENSOR_MAP_RIGHT;
-  
   const loadSvg = useCallback(async () => {
     try {
       const svgPath = `/svg/${side === 'left' ? 'left_foot.svg' : 'right_foot.svg'}`;
-      console.log(`Attempting to load SVG from: ${svgPath}`);
+      console.log(`Loading SVG from path: ${svgPath}`);
       
       const response = await fetch(svgPath);
       if (!response.ok) {
@@ -35,13 +33,7 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
       }
       
       const svgText = await response.text();
-      
-      // Check if the response is actually an SVG file and not an HTML document
-      if (svgText.includes('<!DOCTYPE html>')) {
-        throw new Error('Received HTML instead of SVG content');
-      }
-      
-      console.log(`SVG loaded successfully (${svgText.length} characters)`);
+      console.log(`SVG loaded successfully, content length: ${svgText.length} characters`);
       setSvgContent(svgText);
       setError(null);
     } catch (error) {
@@ -60,9 +52,9 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
     let modifiedSvg = svgContent;
     
     // For each sensor path in the SVG
-    const prefix = side === 'left' ? 'R_' : 'L_';
+    const sensorPrefix = side === 'left' ? 'R_' : 'L_';
     for (let i = 1; i <= 99; i++) {
-      const sensorId = `${prefix}${String(i).padStart(2, '0')}`;
+      const sensorId = `${sensorPrefix}${String(i).padStart(2, '0')}`;
       const footSensors = side === 'left' ? dataPoint.leftFootSensors : dataPoint.rightFootSensors;
       const pressure = footSensors[sensorId] || 0;
       
@@ -70,21 +62,18 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
       const color = getPressureColor(pressure, maxPressure);
       
       // Modify SVG to apply the color
-      const pathRegex = new RegExp(`id="${sensorId}"[^>]*`, 'g');
-      
-      if (modifiedSvg.match(pathRegex)) {
+      const pathId = `id="${sensorId}"`;
+      if (modifiedSvg.includes(pathId)) {
+        const pathRegex = new RegExp(`<path id="${sensorId}"[^>]*`, 'g');
         modifiedSvg = modifiedSvg.replace(
           pathRegex,
-          `id="${sensorId}" fill="${color}" stroke="black" stroke-width="1"`
+          `<path id="${sensorId}" fill="${color}" stroke="black" stroke-width="1"`
         );
       }
     }
     
     return modifiedSvg;
   }, [svgContent, dataPoint, maxPressure, side]);
-  
-  // Handle rendering the modified SVG
-  const renderedSvg = updateSvgColors();
   
   if (error) {
     return (
@@ -107,6 +96,8 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
       </div>
     );
   }
+  
+  const renderedSvg = updateSvgColors();
   
   return (
     <div className={`relative bg-card p-4 rounded-md shadow-sm ${className}`}>
