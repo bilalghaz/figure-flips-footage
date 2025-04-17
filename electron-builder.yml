@@ -1,0 +1,35 @@
+
+appId: "dev.lovable.footpressure"
+productName: "Foot Pressure Analyzer"
+directories:
+  buildResources: "electron/resources"
+  output: "release"
+files:
+  - "dist/**/*"
+  - "electron/**/*"
+  - "!electron/resources"
+  - "!**/node_modules/**"
+mac:
+  category: "public.app-category.healthcare"
+  target: 
+    - "dmg"
+    - "zip"
+  icon: "electron/resources/icon.icns"
+  darkModeSupport: true
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: "link"
+      path: "/Applications"
+win:
+  target: 
+    - "nsis"
+  icon: "electron/resources/icon.ico"
+linux:
+  target: 
+    - "AppImage"
+  category: "Science;Medical"
+  icon: "electron/resources/icons"

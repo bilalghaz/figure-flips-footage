@@ -1,0 +1,12 @@
+
+{
+  "name": "foot-pressure-analyzer-electron",
+  "version": "1.0.0",
+  "description": "Foot Pressure Analyzer Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "ISC"
+}
