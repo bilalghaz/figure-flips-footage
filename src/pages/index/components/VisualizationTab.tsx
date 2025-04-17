@@ -108,6 +108,7 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
             currentTime={currentTime}
             region={currentRegion}
             mode={pressureMode}
+            side="left"
           />
           <PressureDataTable 
             dataPoint={currentDataPoint || getCurrentDataPoint()}
