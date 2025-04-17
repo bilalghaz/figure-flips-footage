@@ -57,6 +57,7 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
                   <SelectValue placeholder="Select Region" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="fullFoot">Full Foot</SelectItem>
                   <SelectItem value="heel">Heel</SelectItem>
                   <SelectItem value="medialMidfoot">Medial Midfoot</SelectItem>
                   <SelectItem value="lateralMidfoot">Lateral Midfoot</SelectItem>
@@ -83,13 +84,29 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
           </div>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <PressureChart
-            data={data} 
-            currentTime={currentTime}
-            region={currentRegion}
-            mode={pressureMode}
-          />
+        <div className="grid grid-cols-1 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <PressureChart
+              data={data} 
+              currentTime={currentTime}
+              region={currentRegion}
+              mode={pressureMode}
+              side="left"
+              className="h-[500px]"
+              enableZoom={true}
+            />
+            
+            <PressureChart
+              data={data} 
+              currentTime={currentTime}
+              region={currentRegion}
+              mode={pressureMode}
+              side="right"
+              className="h-[500px]"
+              enableZoom={true}
+            />
+          </div>
+          
           <PressureDataTable 
             dataPoint={currentDataPoint || getCurrentDataPoint()}
             mode={pressureMode}
