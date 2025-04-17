@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { GaitEvent, GaitEventThresholds, detectGaitEvents, getActiveEvents } from '@/utils/gaitEventDetector';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
