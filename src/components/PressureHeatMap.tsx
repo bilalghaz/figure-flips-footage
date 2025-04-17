@@ -59,8 +59,10 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
     
     let modifiedSvg = svgContent;
     
-    // For each SVG element that corresponds to a sensor
-    Object.entries(sensorMap).forEach(([svgId, sensorId]) => {
+    // For each sensor path in the SVG
+    const prefix = side === 'left' ? 'R_' : 'L_';
+    for (let i = 1; i <= 99; i++) {
+      const sensorId = `${prefix}${String(i).padStart(2, '0')}`;
       const footSensors = side === 'left' ? dataPoint.leftFootSensors : dataPoint.rightFootSensors;
       const pressure = footSensors[sensorId] || 0;
       
@@ -68,25 +70,18 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
       const color = getPressureColor(pressure, maxPressure);
       
       // Modify SVG to apply the color
-      const fillRegex = new RegExp(`id="${svgId}"[^>]*fill="[^"]*"`, 'g');
-      const idRegex = new RegExp(`id="${svgId}"`, 'g');
+      const pathRegex = new RegExp(`id="${sensorId}"[^>]*`, 'g');
       
-      // Update the SVG element with new styles
-      if (modifiedSvg.match(fillRegex)) {
+      if (modifiedSvg.match(pathRegex)) {
         modifiedSvg = modifiedSvg.replace(
-          fillRegex,
-          `id="${svgId}" fill="${color}"`
-        );
-      } else if (modifiedSvg.match(idRegex)) {
-        modifiedSvg = modifiedSvg.replace(
-          idRegex,
-          `id="${svgId}" fill="${color}"`
+          pathRegex,
+          `id="${sensorId}" fill="${color}" stroke="black" stroke-width="1"`
         );
       }
-    });
+    }
     
     return modifiedSvg;
-  }, [svgContent, dataPoint, maxPressure, sensorMap, side]);
+  }, [svgContent, dataPoint, maxPressure, side]);
   
   // Handle rendering the modified SVG
   const renderedSvg = updateSvgColors();
