@@ -2,12 +2,10 @@
 appId: "dev.lovable.footpressure"
 productName: "Foot Pressure Analyzer"
 directories:
-  buildResources: "electron/resources"
   output: "release"
 files:
   - "dist/**/*"
-  - "electron/**/*"
-  - "!electron/resources"
+  - "electron/main.js"
   - "!**/node_modules/**"
 mac:
   category: "public.app-category.healthcare"
@@ -15,14 +13,6 @@ mac:
     - "dmg"
     - "zip"
   darkModeSupport: true
-dmg:
-  contents:
-    - x: 130
-      y: 220
-    - x: 410
-      y: 220
-      type: "link"
-      path: "/Applications"
 win:
   target: 
     - "nsis"
