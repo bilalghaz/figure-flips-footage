@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { PressureDataPoint, SVG_TO_SENSOR_MAP_LEFT, SVG_TO_SENSOR_MAP_RIGHT } from '@/utils/pressureDataProcessor';
 import { getPressureColor } from '@/utils/colorUtils';
@@ -32,12 +33,17 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   
   const loadSvg = useCallback(async () => {
     try {
+      // Fix the SVG path to ensure it loads correctly
       const svgPath = `/svg/${side === 'left' ? 'left_foot.svg' : 'right_foot.svg'}`;
+      console.log(`Attempting to load SVG from: ${svgPath}`);
+      
       const response = await fetch(svgPath);
       if (!response.ok) {
         throw new Error(`Failed to load SVG: ${response.status} ${response.statusText}`);
       }
+      
       const svgText = await response.text();
+      console.log(`SVG loaded successfully (${svgText.length} characters)`);
       setSvgContent(svgText);
     } catch (error) {
       console.error("Error loading SVG:", error);
