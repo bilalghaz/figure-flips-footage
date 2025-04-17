@@ -1,8 +1,7 @@
-
 import React, { useMemo } from 'react';
 import { GaitEvent, GaitEventThresholds, detectGaitEvents, getActiveEvents } from '@/utils/gaitEventDetector';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
-import { Footprints, ShoeIcon } from 'lucide-react';
+import { Footprints, Shoe } from 'lucide-react';
 
 interface GaitEventOverlayProps {
   data: ProcessedData | null;
@@ -17,13 +16,11 @@ const GaitEventOverlay: React.FC<GaitEventOverlayProps> = ({
   thresholds,
   showEvents
 }) => {
-  // Memoize the computed events to avoid recalculation on each render
   const gaitEvents = useMemo(() => {
     if (!data || !showEvents) return [];
     return detectGaitEvents(data.pressureData, thresholds);
   }, [data, thresholds, showEvents]);
   
-  // Get active events (events close to the current time)
   const activeEvents = useMemo(() => {
     return getActiveEvents(gaitEvents, currentTime);
   }, [gaitEvents, currentTime]);
@@ -41,7 +38,7 @@ const GaitEventOverlay: React.FC<GaitEventOverlayProps> = ({
         >
           {event.type === 'initialContact' ? (
             <div className={`flex items-center ${event.foot === 'left' ? 'text-blue-500' : 'text-green-500'}`}>
-              <ShoeIcon size={24} className="animate-pulse" />
+              <Shoe size={24} className="animate-pulse" />
               <span className="ml-1 font-bold">IC</span>
             </div>
           ) : (
