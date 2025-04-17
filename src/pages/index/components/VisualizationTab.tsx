@@ -25,6 +25,25 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
   
   if (!data) return null;
   
+  // Make sure the currentRegion is one that exists in the data
+  const validateCurrentRegion = (region: string) => {
+    const dataPoint = currentDataPoint || getCurrentDataPoint();
+    if (!dataPoint) return 'heel';
+    
+    if (dataPoint.leftFoot[region] && dataPoint.rightFoot[region]) {
+      return region;
+    }
+    
+    // If the selected region doesn't exist, default to heel or another available region
+    return 'heel';
+  };
+  
+  // Ensure the currentRegion is valid
+  const validatedRegion = validateCurrentRegion(currentRegion);
+  if (validatedRegion !== currentRegion) {
+    setCurrentRegion(validatedRegion);
+  }
+  
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -57,7 +76,6 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
                   <SelectValue placeholder="Select Region" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fullFoot">Full Foot</SelectItem>
                   <SelectItem value="heel">Heel</SelectItem>
                   <SelectItem value="medialMidfoot">Medial Midfoot</SelectItem>
                   <SelectItem value="lateralMidfoot">Lateral Midfoot</SelectItem>
@@ -84,29 +102,13 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
           </div>
         </div>
         
-        <div className="grid grid-cols-1 gap-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PressureChart
-              data={data} 
-              currentTime={currentTime}
-              region={currentRegion}
-              mode={pressureMode}
-              side="left"
-              className="h-[500px]"
-              enableZoom={true}
-            />
-            
-            <PressureChart
-              data={data} 
-              currentTime={currentTime}
-              region={currentRegion}
-              mode={pressureMode}
-              side="right"
-              className="h-[500px]"
-              enableZoom={true}
-            />
-          </div>
-          
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <PressureChart
+            data={data} 
+            currentTime={currentTime}
+            region={currentRegion}
+            mode={pressureMode}
+          />
           <PressureDataTable 
             dataPoint={currentDataPoint || getCurrentDataPoint()}
             mode={pressureMode}
