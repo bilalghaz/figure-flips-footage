@@ -62,7 +62,7 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
         />
       </div>
       
-      <div className="bg-white p-4 rounded-md shadow-md">
+      <div className="bg-card p-4 rounded-md shadow-sm">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold">Pressure Analysis</h2>
           <div className="flex items-center space-x-4">
