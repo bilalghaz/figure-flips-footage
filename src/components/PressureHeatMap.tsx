@@ -20,6 +20,7 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   className = ''
 }) => {
   const [svgContent, setSvgContent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   const sensorMap = side === 'left' ? SVG_TO_SENSOR_MAP_LEFT : SVG_TO_SENSOR_MAP_RIGHT;
   
@@ -34,10 +35,18 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
       }
       
       const svgText = await response.text();
+      
+      // Check if the response is actually an SVG file and not an HTML document
+      if (svgText.includes('<!DOCTYPE html>')) {
+        throw new Error('Received HTML instead of SVG content');
+      }
+      
       console.log(`SVG loaded successfully (${svgText.length} characters)`);
       setSvgContent(svgText);
+      setError(null);
     } catch (error) {
       console.error("Error loading SVG:", error);
+      setError(`Failed to load foot SVG: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, [side]);
   
@@ -82,7 +91,21 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   // Handle rendering the modified SVG
   const renderedSvg = updateSvgColors();
   
-  if (!dataPoint) {
+  if (error) {
+    return (
+      <div className={`relative flex flex-col items-center justify-center h-[400px] ${className} bg-card p-4 rounded-md shadow-sm`}>
+        <div className="text-red-500 mb-2">{error}</div>
+        <button 
+          onClick={loadSvg}
+          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
+        >
+          Retry Loading
+        </button>
+      </div>
+    );
+  }
+  
+  if (!dataPoint || !svgContent) {
     return (
       <div className={`relative flex items-center justify-center h-[400px] ${className}`}>
         <Skeleton className="h-[350px] w-[350px] rounded-md" />

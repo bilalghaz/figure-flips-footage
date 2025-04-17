@@ -1,0 +1,29 @@
+
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="300" height="500" viewBox="0 0 300 500" xmlns="http://www.w3.org/2000/svg">
+  <!-- Heel -->
+  <path id="heel_1" d="M100,450 Q150,480 200,450 L200,400 L100,400 Z" fill="#e0e0e0" stroke="black" stroke-width="2" />
+  
+  <!-- Midfoot -->
+  <path id="midfoot_medial_1" d="M100,400 L100,300 L150,300 L150,400 Z" fill="#e0e0e0" stroke="black" stroke-width="2" />
+  <path id="midfoot_lateral_1" d="M150,400 L150,300 L200,300 L200,400 Z" fill="#e0e0e0" stroke="black" stroke-width="2" />
+  
+  <!-- Forefoot -->
+  <path id="forefoot_1" d="M100,300 L100,200 Q150,170 200,200 L200,300 Z" fill="#e0e0e0" stroke="black" stroke-width="2" />
+  
+  <!-- Toes -->
+  <path id="toe_1" d="M100,200 Q100,180 120,170 Q140,160 150,170 Q160,160 180,170 Q200,180 200,200 Z" fill="#e0e0e0" stroke="black" stroke-width="2" />
+  <path id="hallux_1" d="M120,170 Q130,130 150,170" fill="none" stroke="black" stroke-width="2" />
+  
+  <!-- Sensor locations -->
+  <circle id="sensor_1" cx="150" cy="425" r="15" fill="#e0e0e0" stroke="black" stroke-width="1" />
+  <circle id="sensor_2" cx="125" cy="350" r="15" fill="#e0e0e0" stroke="black" stroke-width="1" />
+  <circle id="sensor_3" cx="175" cy="350" r="15" fill="#e0e0e0" stroke="black" stroke-width="1" />
+  <circle id="sensor_4" cx="125" cy="250" r="15" fill="#e0e0e0" stroke="black" stroke-width="1" />
+  <circle id="sensor_5" cx="175" cy="250" r="15" fill="#e0e0e0" stroke="black" stroke-width="1" />
+  <circle id="sensor_6" cx="150" cy="185" r="15" fill="#e0e0e0" stroke="black" stroke-width="1" />
+  <circle id="sensor_7" cx="130" cy="155" r="10" fill="#e0e0e0" stroke="black" stroke-width="1" />
+  
+  <!-- Labels -->
+  <text x="150" y="490" text-anchor="middle" font-family="Arial" font-size="14">Left Foot</text>
+</svg>
