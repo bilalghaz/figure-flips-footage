@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { GaitEvent, GaitEventThresholds, detectGaitEvents, getActiveEvents } from '@/utils/gaitEventDetector';
 import { ProcessedData } from '@/utils/pressureDataProcessor';
-import { Boot, Footprints } from 'lucide-react';
+import { Footprints, ShoeIcon } from 'lucide-react';
 
 interface GaitEventOverlayProps {
   data: ProcessedData | null;
@@ -41,7 +41,7 @@ const GaitEventOverlay: React.FC<GaitEventOverlayProps> = ({
         >
           {event.type === 'initialContact' ? (
             <div className={`flex items-center ${event.foot === 'left' ? 'text-blue-500' : 'text-green-500'}`}>
-              <Boot size={24} className="animate-pulse" />
+              <ShoeIcon size={24} className="animate-pulse" />
               <span className="ml-1 font-bold">IC</span>
             </div>
           ) : (
