@@ -7,13 +7,21 @@ interface PressureHeatMapProps {
   side: 'left' | 'right';
   maxPressure: number;
   mode: 'peak' | 'mean';
+  editMode?: boolean;
+  selectedSensor?: string | null;
+  onSensorSelect?: (sensorId: string) => void;
+  customSensorAssignments?: Record<string, string>;
 }
 
 const PressureHeatMap: React.FC<PressureHeatMapProps> = ({ 
   dataPoint, 
   side, 
   maxPressure,
-  mode
+  mode,
+  editMode = false,
+  selectedSensor = null,
+  onSensorSelect,
+  customSensorAssignments = {}
 }) => {
   // Handle empty data
   if (!dataPoint) {
@@ -24,8 +32,85 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
     );
   }
   
+  // Get the standard region definitions
+  const defaultRegions = side === 'left' ? 
+    {
+      heel: ['R_01', 'R_02', 'R_03', 'R_04', 'R_05', 'R_06', 'R_07', 'R_08', 'R_09', 'R_10', 'R_11', 'R_12', 'R_13', 'R_14', 'R_15', 'R_16', 'R_17', 'R_18', 'R_19', 'R_20', 'R_21', 'R_22', 'R_23', 'R_24', 'R_25'],
+      medialMidfoot: ['R_30', 'R_31', 'R_32', 'R_33', 'R_37', 'R_38', 'R_39', 'R_40', 'R_44', 'R_45', 'R_46', 'R_47', 'R_51', 'R_52', 'R_53', 'R_54'],
+      lateralMidfoot: ['R_27', 'R_28', 'R_29', 'R_34', 'R_35', 'R_36', 'R_41', 'R_42', 'R_43', 'R_48', 'R_49', 'R_50'],
+      forefoot: ['R_55', 'R_56', 'R_57', 'R_58', 'R_59', 'R_60', 'R_61', 'R_62', 'R_63', 'R_64', 'R_65', 'R_66', 'R_67', 'R_68', 'R_69', 'R_70', 'R_71', 'R_72', 'R_73', 'R_74', 'R_75', 'R_76', 'R_77', 'R_78', 'R_79', 'R_80', 'R_81', 'R_82'],
+      toes: ['R_85', 'R_86', 'R_87', 'R_88', 'R_89', 'R_92', 'R_93', 'R_94', 'R_95', 'R_97', 'R_98', 'R_99'],
+      hallux: ['R_83', 'R_84', 'R_90', 'R_91', 'R_96'],
+    } : {
+      heel: ['L_01', 'L_02', 'L_03', 'L_04', 'L_05', 'L_06', 'L_07', 'L_08', 'L_09', 'L_10', 'L_11', 'L_12', 'L_13', 'L_14', 'L_15', 'L_16', 'L_17', 'L_18', 'L_19', 'L_20', 'L_21', 'L_22', 'L_23', 'L_24', 'L_25'],
+      medialMidfoot: ['L_30', 'L_31', 'L_32', 'L_33', 'L_37', 'L_38', 'L_39', 'L_40', 'L_44', 'L_45', 'L_46', 'L_47', 'L_51', 'L_52', 'L_53', 'L_54'],
+      lateralMidfoot: ['L_27', 'L_28', 'L_29', 'L_34', 'L_35', 'L_36', 'L_41', 'L_42', 'L_43', 'L_48', 'L_49', 'L_50'],
+      forefoot: ['L_55', 'L_56', 'L_57', 'L_58', 'L_59', 'L_60', 'L_61', 'L_62', 'L_63', 'L_64', 'L_65', 'L_66', 'L_67', 'L_68', 'L_69', 'L_70', 'L_71', 'L_72', 'L_73', 'L_74', 'L_75', 'L_76', 'L_77', 'L_78', 'L_79', 'L_80', 'L_81', 'L_82'],
+      toes: ['L_85', 'L_86', 'L_87', 'L_88', 'L_89', 'L_92', 'L_93', 'L_94', 'L_95', 'L_97', 'L_98', 'L_99'],
+      hallux: ['L_83', 'L_84', 'L_90', 'L_91', 'L_96'],
+    };
+
+  // Apply custom assignments to get the final region mapping
+  const customizedRegions = useMemo(() => {
+    const regions = { ...defaultRegions };
+    
+    // If there are custom assignments, we need to rebuild the region mappings
+    if (Object.keys(customSensorAssignments).length > 0) {
+      // Remove sensors from their default regions
+      Object.entries(customSensorAssignments).forEach(([sensorId, _]) => {
+        for (const region in regions) {
+          regions[region] = regions[region].filter(id => id !== sensorId);
+        }
+      });
+      
+      // Add sensors to their assigned regions
+      Object.entries(customSensorAssignments).forEach(([sensorId, region]) => {
+        if (regions[region]) {
+          regions[region].push(sensorId);
+        }
+      });
+    }
+    
+    return regions;
+  }, [defaultRegions, customSensorAssignments]);
+  
   // Get foot data based on selected side
-  const footData = side === 'left' ? dataPoint.leftFoot : dataPoint.rightFoot;
+  const footData = useMemo(() => {
+    // Start with empty region data
+    const regionData: Record<string, { peak: number; mean: number; raw: number[] }> = {
+      heel: { peak: 0, mean: 0, raw: [] },
+      medialMidfoot: { peak: 0, mean: 0, raw: [] },
+      lateralMidfoot: { peak: 0, mean: 0, raw: [] },
+      forefoot: { peak: 0, mean: 0, raw: [] },
+      toes: { peak: 0, mean: 0, raw: [] },
+      hallux: { peak: 0, mean: 0, raw: [] },
+    };
+    
+    // Get sensor data from dataPoint
+    const sensorData = side === 'left' ? dataPoint.leftFootSensors : dataPoint.rightFootSensors;
+    
+    // Calculate region data based on customized regions
+    for (const [region, sensorIds] of Object.entries(customizedRegions)) {
+      const sensorValues = sensorIds
+        .map(id => sensorData[id] || 0)
+        .filter(value => !isNaN(value));
+      
+      if (sensorValues.length > 0) {
+        const peak = Math.max(...sensorValues);
+        const mean = sensorValues.reduce((sum, val) => sum + val, 0) / sensorValues.length;
+        
+        regionData[region] = {
+          peak,
+          mean,
+          raw: sensorValues
+        };
+      }
+    }
+    
+    return regionData;
+  }, [dataPoint, side, customizedRegions]);
+  
+  // Get individual sensor data
   const sensorData = side === 'left' ? dataPoint.leftFootSensors : dataPoint.rightFootSensors;
   
   // Calculate colors for each region
@@ -116,10 +201,48 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   // Determine which sensor map to use
   const sensorMap = side === 'left' ? SVG_TO_SENSOR_MAP_LEFT : SVG_TO_SENSOR_MAP_RIGHT;
   
+  // Get the region for a sensor (considering custom assignments)
+  const getSensorRegion = (sensorId: string) => {
+    if (customSensorAssignments[sensorId]) {
+      return customSensorAssignments[sensorId];
+    }
+    
+    // Check default regions
+    for (const [region, sensorIds] of Object.entries(defaultRegions)) {
+      if (sensorIds.includes(sensorId)) {
+        return region;
+      }
+    }
+    
+    return 'unknown';
+  };
+  
+  // Get display name for a region
+  const getRegionDisplayName = (regionKey: string) => {
+    const displayNames: Record<string, string> = {
+      heel: 'Heel',
+      medialMidfoot: 'Medial Midfoot',
+      lateralMidfoot: 'Lateral Midfoot',
+      forefoot: 'Forefoot',
+      toes: 'Toes',
+      hallux: 'Hallux'
+    };
+    
+    return displayNames[regionKey] || regionKey;
+  };
+  
+  // Handle sensor click in edit mode
+  const handleSensorClick = (sensorId: string) => {
+    if (editMode && onSensorSelect) {
+      onSensorSelect(sensorId);
+    }
+  };
+  
   return (
     <div className="flex flex-col items-center space-y-4 bg-card rounded-md p-4 shadow-sm">
       <h3 className="text-lg font-medium">
         {side === 'left' ? 'Left' : 'Right'} Foot
+        {editMode && <span className="ml-2 text-sm font-normal text-muted-foreground">(Edit Mode)</span>}
       </h3>
       
       <div className="relative w-[220px] h-[400px]">
@@ -129,12 +252,13 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
           className={`w-full h-full`}
           preserveAspectRatio="xMidYMid meet"
         >
-          {/* Remove all text labels */}
-          
-          {/* Keep existing sensor rendering code */}
+          {/* Render all sensors */}
           {side === 'left' ? (
             Object.entries(sensorData).map(([sensorId, pressure]) => {
               if (!sensorId.startsWith('R_')) return null;
+              
+              const isSelected = sensorId === selectedSensor;
+              const region = getSensorRegion(sensorId);
               
               return (
                 <path 
@@ -142,10 +266,13 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
                   id={sensorId}
                   d={getSensorPath(sensorId, side)}
                   fill={sensorColors[sensorId] || 'rgba(0,0,0,0.1)'}
-                  stroke="rgba(0,0,0,0.2)"
-                  strokeWidth="1"
+                  stroke={isSelected ? "rgba(255,0,0,0.8)" : "rgba(0,0,0,0.2)"}
+                  strokeWidth={isSelected ? "2" : "1"}
+                  onClick={() => handleSensorClick(sensorId)}
+                  className={editMode ? "cursor-pointer hover:stroke-primary hover:stroke-2" : ""}
+                  data-region={region}
                 >
-                  <title>{`Sensor ${sensorMap[sensorId]}: ${formatPressure(pressure)} kPa`}</title>
+                  <title>{`Sensor ${sensorMap[sensorId]}: ${formatPressure(pressure)} kPa (${getRegionDisplayName(region)})`}</title>
                 </path>
               );
             })
@@ -153,16 +280,22 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
             Object.entries(sensorData).map(([sensorId, pressure]) => {
               if (!sensorId.startsWith('L_')) return null;
               
+              const isSelected = sensorId === selectedSensor;
+              const region = getSensorRegion(sensorId);
+              
               return (
                 <path 
                   key={sensorId}
                   id={sensorId}
                   d={getSensorPath(sensorId, side)}
                   fill={sensorColors[sensorId] || 'rgba(0,0,0,0.1)'}
-                  stroke="rgba(0,0,0,0.2)"
-                  strokeWidth="1"
+                  stroke={isSelected ? "rgba(255,0,0,0.8)" : "rgba(0,0,0,0.2)"}
+                  strokeWidth={isSelected ? "2" : "1"}
+                  onClick={() => handleSensorClick(sensorId)}
+                  className={editMode ? "cursor-pointer hover:stroke-primary hover:stroke-2" : ""}
+                  data-region={region}
                 >
-                  <title>{`Sensor ${sensorMap[sensorId]}: ${formatPressure(pressure)} kPa`}</title>
+                  <title>{`Sensor ${sensorMap[sensorId]}: ${formatPressure(pressure)} kPa (${getRegionDisplayName(region)})`}</title>
                 </path>
               );
             })
@@ -201,6 +334,14 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
           );
         })}
       </div>
+      
+      {editMode && selectedSensor && (
+        <div className="w-full p-2 bg-muted rounded-md text-sm">
+          <p className="font-medium">Selected: {selectedSensor}</p>
+          <p>Current Region: {getRegionDisplayName(getSensorRegion(selectedSensor))}</p>
+          <p>Pressure: {formatPressure(sensorData[selectedSensor] || 0)} kPa</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -25,6 +25,7 @@ interface PressureChartProps {
   side: 'left' | 'right';
   className?: string;
   enableZoom?: boolean;
+  customSensorAssignments?: Record<string, string>;
 }
 
 const PressureChart: React.FC<PressureChartProps> = ({ 
@@ -34,7 +35,8 @@ const PressureChart: React.FC<PressureChartProps> = ({
   mode,
   side,
   className,
-  enableZoom = false
+  enableZoom = false,
+  customSensorAssignments = {}
 }) => {
   const [refAreaLeft, setRefAreaLeft] = useState('');
   const [refAreaRight, setRefAreaRight] = useState('');
@@ -48,9 +50,54 @@ const PressureChart: React.FC<PressureChartProps> = ({
     );
   }
   
+  // Get standard region definitions
+  const getDefaultRegionSensors = () => {
+    const prefix = side === 'left' ? 'R_' : 'L_';
+    
+    return {
+      heel: Array.from({length: 25}, (_, i) => `${prefix}${String(i + 1).padStart(2, '0')}`),
+      medialMidfoot: [`${prefix}30`, `${prefix}31`, `${prefix}32`, `${prefix}33`, `${prefix}37`, `${prefix}38`, `${prefix}39`, `${prefix}40`, `${prefix}44`, `${prefix}45`, `${prefix}46`, `${prefix}47`, `${prefix}51`, `${prefix}52`, `${prefix}53`, `${prefix}54`],
+      lateralMidfoot: [`${prefix}27`, `${prefix}28`, `${prefix}29`, `${prefix}34`, `${prefix}35`, `${prefix}36`, `${prefix}41`, `${prefix}42`, `${prefix}43`, `${prefix}48`, `${prefix}49`, `${prefix}50`],
+      forefoot: Array.from({length: 28}, (_, i) => `${prefix}${String(i + 55).padStart(2, '0')}`),
+      toes: [`${prefix}85`, `${prefix}86`, `${prefix}87`, `${prefix}88`, `${prefix}89`, `${prefix}92`, `${prefix}93`, `${prefix}94`, `${prefix}95`, `${prefix}97`, `${prefix}98`, `${prefix}99`],
+      hallux: [`${prefix}83`, `${prefix}84`, `${prefix}90`, `${prefix}91`, `${prefix}96`],
+    };
+  };
+  
+  // Apply custom assignments to get the final region mapping
+  const getCustomizedRegionSensors = () => {
+    const defaultRegions = getDefaultRegionSensors();
+    const regions = { ...defaultRegions };
+    
+    // If there are custom assignments, we need to rebuild the region mappings
+    if (Object.keys(customSensorAssignments).length > 0) {
+      // Remove sensors from their default regions
+      Object.entries(customSensorAssignments).forEach(([sensorId, _]) => {
+        for (const region in regions) {
+          regions[region] = regions[region].filter(id => id !== sensorId);
+        }
+      });
+      
+      // Add sensors to their assigned regions
+      Object.entries(customSensorAssignments).forEach(([sensorId, region]) => {
+        if (regions[region]) {
+          regions[region].push(sensorId);
+        }
+      });
+    }
+    
+    return regions;
+  };
+  
   // Sample data points for better performance
   const maxPoints = 200; // Limit to maximum 200 points for better performance
   const stride = Math.max(1, Math.floor(data.pressureData.length / maxPoints));
+  
+  // Get sensor IDs for the selected region
+  const regionSensors = getCustomizedRegionSensors();
+  const sensorIds = region === 'fullFoot' 
+    ? Object.values(regionSensors).flat() 
+    : regionSensors[region] || [];
   
   const chartData = [];
   for (let i = 0; i < data.pressureData.length; i += stride) {
@@ -70,10 +117,19 @@ const PressureChart: React.FC<PressureChartProps> = ({
       }
       pressureValue = totalPressure;
     } else {
-      // Get specific region pressure
-      const footData = side === 'left' ? point.leftFoot : point.rightFoot;
-      if (footData[region] && footData[region][mode] !== undefined) {
-        pressureValue = footData[region][mode];
+      // Calculate pressure for the selected region using the sensor IDs
+      const footSensors = side === 'left' ? point.leftFootSensors : point.rightFootSensors;
+      
+      // Get all sensor values for this region
+      const sensorValues = sensorIds.map(id => footSensors[id] || 0).filter(v => !isNaN(v));
+      
+      // Calculate peak or mean pressure based on mode
+      if (sensorValues.length > 0) {
+        if (mode === 'peak') {
+          pressureValue = Math.max(...sensorValues);
+        } else {
+          pressureValue = sensorValues.reduce((sum, val) => sum + val, 0) / sensorValues.length;
+        }
       }
     }
     
@@ -101,9 +157,19 @@ const PressureChart: React.FC<PressureChartProps> = ({
       }
       pressureValue = totalPressure;
     } else {
-      const footData = side === 'left' ? currentPoint.leftFoot : currentPoint.rightFoot;
-      if (footData[region] && footData[region][mode] !== undefined) {
-        pressureValue = footData[region][mode];
+      // Calculate pressure for the selected region using the sensor IDs
+      const footSensors = side === 'left' ? currentPoint.leftFootSensors : currentPoint.rightFootSensors;
+      
+      // Get all sensor values for this region
+      const sensorValues = sensorIds.map(id => footSensors[id] || 0).filter(v => !isNaN(v));
+      
+      // Calculate peak or mean pressure based on mode
+      if (sensorValues.length > 0) {
+        if (mode === 'peak') {
+          pressureValue = Math.max(...sensorValues);
+        } else {
+          pressureValue = sensorValues.reduce((sum, val) => sum + val, 0) / sensorValues.length;
+        }
       }
     }
     
@@ -260,7 +326,7 @@ const PressureChart: React.FC<PressureChartProps> = ({
             <Line 
               type="monotone" 
               dataKey="pressure" 
-              name={getSideName(side)} 
+              name={`${getSideName(side)} ${getRegionName(region)}`} 
               stroke={lineColor}
               activeDot={{ r: 8 }} 
               strokeWidth={2}
