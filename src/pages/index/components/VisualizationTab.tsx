@@ -1,16 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
-import { PressureDataPoint, ProcessedData, SVG_TO_SENSOR_MAP_LEFT, SVG_TO_SENSOR_MAP_RIGHT } from '@/utils/pressureDataProcessor';
+import React, { useState } from 'react';
+import { PressureDataPoint, ProcessedData } from '@/utils/pressureDataProcessor';
 import PressureHeatMap from '@/components/PressureHeatMap';
 import PressureChart from '@/components/PressureChart';
 import PressureDataTable from '@/components/PressureDataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Pencil, Save, RotateCcw } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 interface VisualizationTabProps {
   data: ProcessedData | null;
@@ -19,37 +14,14 @@ interface VisualizationTabProps {
   getCurrentDataPoint: () => PressureDataPoint | null;
 }
 
-// Interface for custom sensor assignments
-interface CustomSensorAssignments {
-  left: Record<string, string>;  // sensorId -> region
-  right: Record<string, string>; // sensorId -> region
-}
-
 const VisualizationTab: React.FC<VisualizationTabProps> = ({
   data,
   currentTime,
   currentDataPoint,
   getCurrentDataPoint
 }) => {
-  const { toast } = useToast();
   const [currentRegion, setCurrentRegion] = useState('heel');
   const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
-  const [sensorAssignments, setSensorAssignments] = useState<CustomSensorAssignments>({
-    left: {},
-    right: {}
-  });
-  
-  // Load custom assignments from localStorage on component mount
-  useEffect(() => {
-    const savedAssignments = localStorage.getItem('sensorAssignments');
-    if (savedAssignments) {
-      try {
-        setSensorAssignments(JSON.parse(savedAssignments));
-      } catch (error) {
-        console.error("Failed to load saved sensor assignments:", error);
-      }
-    }
-  }, []);
   
   if (!data) return null;
   
@@ -122,7 +94,6 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
               side="left"
               className="h-[500px]"
               enableZoom={true}
-              customSensorAssignments={sensorAssignments.left}
             />
             
             <PressureChart
@@ -133,17 +104,12 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
               side="right"
               className="h-[500px]"
               enableZoom={true}
-              customSensorAssignments={sensorAssignments.right}
             />
           </div>
           
           <PressureDataTable 
             dataPoint={currentDataPoint || getCurrentDataPoint()}
             mode={pressureMode}
-            customSensorAssignments={{
-              left: sensorAssignments.left,
-              right: sensorAssignments.right
-            }}
           />
         </div>
       </div>

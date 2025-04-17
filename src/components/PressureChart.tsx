@@ -25,7 +25,6 @@ interface PressureChartProps {
   side: 'left' | 'right';
   className?: string;
   enableZoom?: boolean;
-  customSensorAssignments?: Record<string, string>;
 }
 
 const PressureChart: React.FC<PressureChartProps> = ({ 
@@ -35,8 +34,7 @@ const PressureChart: React.FC<PressureChartProps> = ({
   mode,
   side,
   className,
-  enableZoom = false,
-  customSensorAssignments = {}
+  enableZoom = false
 }) => {
   const [refAreaLeft, setRefAreaLeft] = useState('');
   const [refAreaRight, setRefAreaRight] = useState('');
@@ -51,8 +49,8 @@ const PressureChart: React.FC<PressureChartProps> = ({
   }
   
   // Get standard region definitions
-  const getDefaultRegionSensors = () => {
-    const prefix = side === 'left' ? 'R_' : 'L_';
+  const getRegionSensors = () => {
+    const prefix = side === 'left' ? 'L_' : 'R_';
     
     return {
       heel: Array.from({length: 25}, (_, i) => `${prefix}${String(i + 1).padStart(2, '0')}`),
@@ -64,37 +62,12 @@ const PressureChart: React.FC<PressureChartProps> = ({
     };
   };
   
-  // Apply custom assignments to get the final region mapping
-  const getCustomizedRegionSensors = () => {
-    const defaultRegions = getDefaultRegionSensors();
-    const regions = { ...defaultRegions };
-    
-    // If there are custom assignments, we need to rebuild the region mappings
-    if (Object.keys(customSensorAssignments).length > 0) {
-      // Remove sensors from their default regions
-      Object.entries(customSensorAssignments).forEach(([sensorId, _]) => {
-        for (const region in regions) {
-          regions[region] = regions[region].filter(id => id !== sensorId);
-        }
-      });
-      
-      // Add sensors to their assigned regions
-      Object.entries(customSensorAssignments).forEach(([sensorId, region]) => {
-        if (regions[region]) {
-          regions[region].push(sensorId);
-        }
-      });
-    }
-    
-    return regions;
-  };
-  
   // Sample data points for better performance
   const maxPoints = 200; // Limit to maximum 200 points for better performance
   const stride = Math.max(1, Math.floor(data.pressureData.length / maxPoints));
   
   // Get sensor IDs for the selected region
-  const regionSensors = getCustomizedRegionSensors();
+  const regionSensors = getRegionSensors();
   const sensorIds = region === 'fullFoot' 
     ? Object.values(regionSensors).flat() 
     : regionSensors[region] || [];
