@@ -1,23 +1,22 @@
-
 import * as XLSX from 'xlsx';
 
-// Define sensor regions based on the provided SVG layouts
+// Define sensor regions based on the provided SVG layouts and specified sensor numbering
 export const LEFT_FOOT_SENSORS = {
-  heel: ['R_01', 'R_02', 'R_03', 'R_04', 'R_05', 'R_11', 'R_12', 'R_13', 'R_14', 'R_15', 'R_16', 'R_17', 'R_18', 'R_19'],
-  medialMidfoot: ['R_06', 'R_07', 'R_08', 'R_20', 'R_21', 'R_22', 'R_27', 'R_28', 'R_29', 'R_35', 'R_36', 'R_37'],
-  lateralMidfoot: ['R_09', 'R_10', 'R_23', 'R_24', 'R_25', 'R_26', 'R_30', 'R_31', 'R_32', 'R_33', 'R_34', 'R_38', 'R_39', 'R_40'],
-  forefoot: ['R_41', 'R_42', 'R_43', 'R_44', 'R_45', 'R_46', 'R_47', 'R_48', 'R_49', 'R_50', 'R_51', 'R_52', 'R_53', 'R_54'],
-  toes: ['R_90', 'R_91', 'R_92', 'R_93', 'R_94', 'R_95', 'R_96', 'R_97', 'R_98', 'R_99'],
-  hallux: ['R_83', 'R_84', 'R_85', 'R_86', 'R_87', 'R_88', 'R_89'],
+  heel: Array.from({length: 25}, (_, i) => `R_${String(i + 1).padStart(2, '0')}`),
+  medialMidfoot: ['R_30', 'R_31', 'R_32', 'R_33', 'R_37', 'R_38', 'R_39', 'R_40', 'R_44', 'R_45', 'R_46', 'R_47', 'R_51', 'R_52', 'R_53', 'R_54'],
+  lateralMidfoot: ['R_27', 'R_28', 'R_29', 'R_34', 'R_35', 'R_36', 'R_41', 'R_42', 'R_43', 'R_48', 'R_49', 'R_50'],
+  forefoot: Array.from({length: 28}, (_, i) => `R_${String(i + 55).padStart(2, '0')}`),
+  toes: ['R_85', 'R_86', 'R_87', 'R_88', 'R_89', 'R_92', 'R_93', 'R_94', 'R_95', 'R_97', 'R_98', 'R_99'],
+  hallux: ['R_83', 'R_84', 'R_90', 'R_91', 'R_96'],
 };
 
 export const RIGHT_FOOT_SENSORS = {
-  heel: ['L_01', 'L_02', 'L_03', 'L_04', 'L_05', 'L_11', 'L_12', 'L_13', 'L_14', 'L_15', 'L_16', 'L_17', 'L_18', 'L_19'],
-  medialMidfoot: ['L_06', 'L_07', 'L_08', 'L_20', 'L_21', 'L_22', 'L_27', 'L_28', 'L_29', 'L_35', 'L_36', 'L_37'],
-  lateralMidfoot: ['L_09', 'L_10', 'L_23', 'L_24', 'L_25', 'L_26', 'L_30', 'L_31', 'L_32', 'L_33', 'L_34', 'L_38', 'L_39', 'L_40'],
-  forefoot: ['L_41', 'L_42', 'L_43', 'L_44', 'L_45', 'L_46', 'L_47', 'L_48', 'L_49', 'L_50', 'L_51', 'L_52', 'L_53', 'L_54'],
-  toes: ['L_90', 'L_91', 'L_92', 'L_93', 'L_94', 'L_95', 'L_96', 'L_97', 'L_98', 'L_99'],
-  hallux: ['L_83', 'L_84', 'L_85', 'L_86', 'L_87', 'L_88', 'L_89'],
+  heel: Array.from({length: 25}, (_, i) => `L_${String(i + 1).padStart(2, '0')}`),
+  medialMidfoot: ['L_30', 'L_31', 'L_32', 'L_33', 'L_37', 'L_38', 'L_39', 'L_40', 'L_44', 'L_45', 'L_46', 'L_47', 'L_51', 'L_52', 'L_53', 'L_54'],
+  lateralMidfoot: ['L_27', 'L_28', 'L_29', 'L_34', 'L_35', 'L_36', 'L_41', 'L_42', 'L_43', 'L_48', 'L_49', 'L_50'],
+  forefoot: Array.from({length: 28}, (_, i) => `L_${String(i + 55).padStart(2, '0')}`),
+  toes: ['L_85', 'L_86', 'L_87', 'L_88', 'L_89', 'L_92', 'L_93', 'L_94', 'L_95', 'L_97', 'L_98', 'L_99'],
+  hallux: ['L_83', 'L_84', 'L_90', 'L_91', 'L_96'],
 };
 
 // Direct mapping of SVG IDs to sensor numbers
