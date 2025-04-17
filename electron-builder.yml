@@ -14,7 +14,6 @@ mac:
   target: 
     - "dmg"
     - "zip"
-  icon: "electron/resources/icon.icns"
   darkModeSupport: true
 dmg:
   contents:
@@ -27,9 +26,7 @@ dmg:
 win:
   target: 
     - "nsis"
-  icon: "electron/resources/icon.ico"
 linux:
   target: 
     - "AppImage"
   category: "Science;Medical"
-  icon: "electron/resources/icons"
