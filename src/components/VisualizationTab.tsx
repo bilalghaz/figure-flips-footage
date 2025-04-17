@@ -6,6 +6,9 @@ import PressureChart from '@/components/PressureChart';
 import PressureDataTable from '@/components/PressureDataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import GaitEventControls from '@/components/GaitEventControls';
+import GaitEventOverlay from '@/components/GaitEventOverlay';
+import { GaitEventThresholds } from '@/utils/gaitEventDetector';
 
 interface VisualizationTabProps {
   data: ProcessedData | null;
@@ -22,26 +25,54 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({
 }) => {
   const [currentRegion, setCurrentRegion] = useState('heel');
   const [pressureMode, setPressureMode] = useState<'peak' | 'mean'>('peak');
+  const [showGaitEvents, setShowGaitEvents] = useState(true);
+  const [gaitEventThresholds, setGaitEventThresholds] = useState<GaitEventThresholds>({
+    initialContact: 15,
+    toeOff: 10
+  });
   
   if (!data) return null;
   
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <PressureHeatMap 
-          dataPoint={currentDataPoint || getCurrentDataPoint()} 
-          side="left"
-          maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
-          mode={pressureMode}
-        />
+        <div className="relative">
+          <PressureHeatMap 
+            dataPoint={currentDataPoint || getCurrentDataPoint()} 
+            side="left"
+            maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
+            mode={pressureMode}
+          />
+          <GaitEventOverlay 
+            data={data}
+            currentTime={currentTime}
+            thresholds={gaitEventThresholds}
+            showEvents={showGaitEvents}
+          />
+        </div>
         
-        <PressureHeatMap 
-          dataPoint={currentDataPoint || getCurrentDataPoint()} 
-          side="right"
-          maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
-          mode={pressureMode}
-        />
+        <div className="relative">
+          <PressureHeatMap 
+            dataPoint={currentDataPoint || getCurrentDataPoint()} 
+            side="right"
+            maxPressure={pressureMode === 'peak' ? data?.maxPeakPressure || 0 : data?.maxMeanPressure || 0}
+            mode={pressureMode}
+          />
+          <GaitEventOverlay 
+            data={data}
+            currentTime={currentTime}
+            thresholds={gaitEventThresholds}
+            showEvents={showGaitEvents}
+          />
+        </div>
       </div>
+      
+      <GaitEventControls
+        thresholds={gaitEventThresholds}
+        onThresholdsChange={setGaitEventThresholds}
+        showEvents={showGaitEvents}
+        onShowEventsChange={setShowGaitEvents}
+      />
       
       <div className="bg-card p-4 rounded-md shadow-sm">
         <div className="flex justify-between items-center mb-4">
