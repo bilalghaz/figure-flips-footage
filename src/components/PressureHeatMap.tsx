@@ -10,10 +10,6 @@ interface PressureHeatMapProps {
   maxPressure: number;
   mode: 'peak' | 'mean';
   className?: string;
-  editMode?: boolean;
-  selectedSensor?: string | null;
-  onSensorSelect?: (sensorId: string) => void;
-  customSensorAssignments?: Record<string, string>;
 }
 
 const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
@@ -21,11 +17,7 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   side,
   maxPressure,
   mode,
-  className = '',
-  editMode = false,
-  selectedSensor = null,
-  onSensorSelect,
-  customSensorAssignments = {}
+  className = ''
 }) => {
   const [svgContent, setSvgContent] = useState<string | null>(null);
   
@@ -33,7 +25,6 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
   
   const loadSvg = useCallback(async () => {
     try {
-      // Fix the SVG path to ensure it loads correctly
       const svgPath = `/svg/${side === 'left' ? 'left_foot.svg' : 'right_foot.svg'}`;
       console.log(`Attempting to load SVG from: ${svgPath}`);
       
@@ -67,95 +58,26 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
       // Calculate color based on pressure value
       const color = getPressureColor(pressure, maxPressure);
       
-      // Is this sensor currently selected?
-      const isSelected = selectedSensor === sensorId.toString();
-      
-      // Is this sensor custom assigned to a region?
-      const hasCustomAssignment = sensorId.toString() in customSensorAssignments;
-      
       // Modify SVG to apply the color
       const fillRegex = new RegExp(`id="${svgId}"[^>]*fill="[^"]*"`, 'g');
-      const strokeRegex = new RegExp(`id="${svgId}"[^>]*stroke="[^"]*"`, 'g');
       const idRegex = new RegExp(`id="${svgId}"`, 'g');
-      
-      // Determine the appropriate styles based on state
-      let fill = color;
-      let stroke = 'none';
-      let strokeWidth = '0';
-      
-      if (isSelected) {
-        // Selected sensor styling
-        stroke = '#ff0000';
-        strokeWidth = '1.5';
-      } else if (hasCustomAssignment && editMode) {
-        // Custom assigned sensor styling in edit mode
-        stroke = '#00ff00';
-        strokeWidth = '1';
-      }
       
       // Update the SVG element with new styles
       if (modifiedSvg.match(fillRegex)) {
         modifiedSvg = modifiedSvg.replace(
           fillRegex,
-          `id="${svgId}" fill="${fill}"`
+          `id="${svgId}" fill="${color}"`
         );
       } else if (modifiedSvg.match(idRegex)) {
         modifiedSvg = modifiedSvg.replace(
           idRegex,
-          `id="${svgId}" fill="${fill}"`
-        );
-      }
-      
-      // Add stroke style if needed
-      if (stroke !== 'none') {
-        if (modifiedSvg.match(strokeRegex)) {
-          modifiedSvg = modifiedSvg.replace(
-            strokeRegex,
-            `id="${svgId}" stroke="${stroke}" stroke-width="${strokeWidth}"`
-          );
-        } else {
-          // Add stroke attribute if it doesn't exist
-          modifiedSvg = modifiedSvg.replace(
-            new RegExp(`id="${svgId}"([^>]*)>`, 'g'),
-            `id="${svgId}"$1 stroke="${stroke}" stroke-width="${strokeWidth}">`
-          );
-        }
-      }
-      
-      // Add click event handler for edit mode
-      if (editMode) {
-        // Add pointer events and cursor style for clickable areas
-        modifiedSvg = modifiedSvg.replace(
-          new RegExp(`id="${svgId}"([^>]*)>`, 'g'),
-          `id="${svgId}"$1 style="cursor: pointer;" data-sensor-id="${sensorId}">`
+          `id="${svgId}" fill="${color}"`
         );
       }
     });
     
     return modifiedSvg;
-  }, [
-    svgContent,
-    dataPoint,
-    maxPressure,
-    sensorMap,
-    side,
-    selectedSensor,
-    customSensorAssignments,
-    editMode
-  ]);
-  
-  // Handle click events on sensors
-  const handleSvgClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!editMode || !onSensorSelect) return;
-    
-    // Find the clicked element
-    const target = e.target as HTMLElement;
-    const sensorId = target.getAttribute('data-sensor-id');
-    
-    if (sensorId) {
-      onSensorSelect(sensorId);
-    }
-  }, [editMode, onSensorSelect]);
+  }, [svgContent, dataPoint, maxPressure, sensorMap, side]);
   
   // Handle rendering the modified SVG
   const renderedSvg = updateSvgColors();
@@ -174,15 +96,8 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
         {side === 'left' ? 'Left Foot' : 'Right Foot'} - {mode === 'peak' ? 'Peak' : 'Mean'} Pressure (kPa)
       </h3>
       
-      {editMode && (
-        <div className="absolute top-4 right-4 bg-primary/10 text-primary text-xs py-1 px-2 rounded-full">
-          {selectedSensor ? `Sensor ${selectedSensor} selected` : 'Click on a sensor'}
-        </div>
-      )}
-      
       <div 
         className="flex justify-center items-center min-h-[350px]"
-        onClick={handleSvgClick}
         dangerouslySetInnerHTML={renderedSvg ? { __html: renderedSvg } : undefined}
       />
       
