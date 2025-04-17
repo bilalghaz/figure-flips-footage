@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { PressureDataPoint, SVG_TO_SENSOR_MAP_LEFT, SVG_TO_SENSOR_MAP_RIGHT } from '@/utils/pressureDataProcessor';
 import { getPressureColor } from '@/utils/colorUtils';
@@ -63,10 +62,10 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
       const color = getPressureColor(pressure, maxPressure);
       
       // Is this sensor currently selected?
-      const isSelected = selectedSensor === sensorId;
+      const isSelected = selectedSensor === sensorId.toString();
       
       // Is this sensor custom assigned to a region?
-      const hasCustomAssignment = sensorId in customSensorAssignments;
+      const hasCustomAssignment = sensorId.toString() in customSensorAssignments;
       
       // Modify SVG to apply the color
       const fillRegex = new RegExp(`id="${svgId}"[^>]*fill="[^"]*"`, 'g');
@@ -128,7 +127,16 @@ const PressureHeatMap: React.FC<PressureHeatMapProps> = ({
     });
     
     return modifiedSvg;
-  }, [svgContent, dataPoint, maxPressure, sensorMap, side, selectedSensor, customSensorAssignments, editMode]);
+  }, [
+    svgContent,
+    dataPoint,
+    maxPressure,
+    sensorMap,
+    side,
+    selectedSensor,
+    customSensorAssignments,
+    editMode
+  ]);
   
   // Handle click events on sensors
   const handleSvgClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
